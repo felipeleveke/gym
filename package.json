@@ -13,7 +13,9 @@
     "type-check": "tsc --noEmit",
     "db:generate": "supabase gen types typescript --local > src/types/supabase.ts",
     "db:reset": "supabase db reset",
-    "db:migrate": "supabase migration up"
+    "db:migrate": "supabase migration up",
+    "verify:env": "node scripts/check-env.js",
+    "verify:connection": "tsx scripts/verify-connection.ts"
   },
   "dependencies": {
     "next": "15.5.0",
@@ -21,17 +23,17 @@
     "react-dom": "^19.0.0",
     "@supabase/supabase-js": "^2.39.0",
     "@supabase/ssr": "^0.1.0",
-    "@radix-ui/react-slot": "^1.0.2",
-    "@radix-ui/react-dialog": "^1.0.5",
-    "@radix-ui/react-dropdown-menu": "^2.0.6",
-    "@radix-ui/react-select": "^2.0.0",
-    "@radix-ui/react-tabs": "^1.0.4",
-    "@radix-ui/react-toast": "^1.1.5",
-    "@radix-ui/react-label": "^2.0.2",
+    "@radix-ui/react-slot": "^1.1.0",
+    "@radix-ui/react-dialog": "^1.1.1",
+    "@radix-ui/react-dropdown-menu": "^2.1.1",
+    "@radix-ui/react-select": "^2.1.1",
+    "@radix-ui/react-tabs": "^1.1.0",
+    "@radix-ui/react-toast": "^1.2.1",
+    "@radix-ui/react-label": "^2.1.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.0",
     "tailwind-merge": "^2.2.0",
-    "lucide-react": "^0.344.0",
+    "lucide-react": "^0.446.0",
     "date-fns": "^3.3.1",
     "zod": "^3.22.4",
     "react-hook-form": "^7.50.1",
@@ -53,7 +55,15 @@
     "eslint-config-next": "15.5.0",
     "@typescript-eslint/eslint-plugin": "^6.19.1",
     "@typescript-eslint/parser": "^6.19.1",
-    "supabase": "^1.123.4"
+    "supabase": "^1.123.4",
+    "tsx": "^4.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "overrides": {
+    "lucide-react": "^0.446.0"
   }
 }
 
