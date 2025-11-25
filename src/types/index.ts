@@ -17,7 +17,7 @@ export interface ExerciseSet {
   weight?: number; // en kg
   duration?: number; // en segundos
   restTime?: number; // en segundos
-  rpe?: number; // Rate of Perceived Exertion (1-10)
+  rir?: number; // Reps In Reserve (0-10)
   notes?: string;
 }
 

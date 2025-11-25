@@ -1,6 +1,7 @@
 -- Enable necessary extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS "pgvector";
+-- pgvector extension (comentado para desarrollo local, descomentar en producción si es necesario)
+-- CREATE EXTENSION IF NOT EXISTS "pgvector";
 
 -- Create enum types
 CREATE TYPE user_role AS ENUM ('athlete', 'trainer', 'admin');
@@ -173,10 +174,14 @@ CREATE POLICY "Trainers can view their clients"
     )
   );
 
--- RLS Policies for exercises (public read)
+-- RLS Policies for exercises (public read, authenticated users can create)
 CREATE POLICY "Anyone can view exercises"
   ON public.exercises FOR SELECT
   USING (true);
+
+CREATE POLICY "Authenticated users can create exercises"
+  ON public.exercises FOR INSERT
+  WITH CHECK (auth.role() = 'authenticated');
 
 -- RLS Policies for workout_routines
 CREATE POLICY "Users can view own routines"

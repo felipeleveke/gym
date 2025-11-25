@@ -17,7 +17,7 @@ export default async function DashboardPage() {
     .single();
 
   return (
-    <div className="container-mobile py-6">
+    <div className="p-4 md:p-6">
       <h1 className="text-3xl font-bold mb-6">Dashboard</h1>
       <div className="space-y-4">
         <div className="bg-card p-6 rounded-lg border">

@@ -35,6 +35,8 @@ next-env.d.ts
 
 # Supabase
 .supabase
+# Mantener config.toml pero ignorar archivos de estado local
+.supabase/.temp
 
 # IDE
 .vscode

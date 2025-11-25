@@ -4,6 +4,7 @@ import './globals.css';
 import { Providers } from '@/components/providers';
 import { Toaster } from '@/components/ui/toaster';
 import { PWARegister } from '@/components/pwa-register';
+import { SidebarWrapper } from '@/components/sidebar-wrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -33,7 +34,9 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          {children}
+          <SidebarWrapper>
+            {children}
+          </SidebarWrapper>
           <Toaster />
           <PWARegister />
         </Providers>
