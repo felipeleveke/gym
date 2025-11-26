@@ -7,6 +7,11 @@ import {
   Dumbbell,
   PlusCircle,
   LogOut,
+  BookOpen,
+  Calendar,
+  BarChart3,
+  User,
+  Settings,
 } from "lucide-react"
 
 import {
@@ -34,6 +39,21 @@ const menuItems = [
     url: "/trainings",
     icon: Dumbbell,
   },
+  {
+    title: "Ejercicios",
+    url: "/exercises",
+    icon: BookOpen,
+  },
+  {
+    title: "Rutinas",
+    url: "/routines",
+    icon: Calendar,
+  },
+  {
+    title: "Estadísticas",
+    url: "/stats",
+    icon: BarChart3,
+  },
 ]
 
 const actionItems = [
@@ -41,6 +61,19 @@ const actionItems = [
     title: "Nuevo Entrenamiento",
     url: "/trainings/new",
     icon: PlusCircle,
+  },
+]
+
+const settingsItems = [
+  {
+    title: "Perfil",
+    url: "/profile",
+    icon: User,
+  },
+  {
+    title: "Configuración",
+    url: "/settings",
+    icon: Settings,
   },
 ]
 
@@ -92,6 +125,27 @@ export function AppSidebar() {
             <SidebarMenu>
               {actionItems.map((item) => {
                 const isActive = pathname === item.url
+                return (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton asChild isActive={isActive}>
+                      <Link href={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Configuración</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {settingsItems.map((item) => {
+                const isActive = pathname === item.url || pathname?.startsWith(item.url + '/')
                 return (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={isActive}>

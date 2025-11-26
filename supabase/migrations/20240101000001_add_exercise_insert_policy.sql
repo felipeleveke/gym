@@ -6,3 +6,5 @@ CREATE POLICY "Authenticated users can create exercises"
   WITH CHECK (auth.role() = 'authenticated');
 
 
+
+

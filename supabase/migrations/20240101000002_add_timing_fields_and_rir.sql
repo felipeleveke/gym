@@ -26,3 +26,5 @@ CREATE INDEX IF NOT EXISTS idx_training_exercises_start_time ON public.training_
 CREATE INDEX IF NOT EXISTS idx_training_exercises_end_time ON public.training_exercises(end_time);
 
 
+
+

@@ -115,3 +115,5 @@ export function TrainingsList({ trainings, loading }: TrainingsListProps) {
 }
 
 
+
+
