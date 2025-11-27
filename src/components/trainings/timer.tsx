@@ -6,24 +6,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Play, Pause, Square, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TimerProps {
-  onTimeUpdate?: (seconds: number) => void;
   onRestTimeUpdate?: (seconds: number) => void;
   onExerciseTimeUpdate?: (seconds: number) => void;
   className?: string;
 }
 
 export function Timer({
-  onTimeUpdate,
   onRestTimeUpdate,
   onExerciseTimeUpdate,
   className,
 }: TimerProps) {
-  const [isRunning, setIsRunning] = useState(false);
-  const [totalSeconds, setTotalSeconds] = useState(0);
   const [restSeconds, setRestSeconds] = useState(0);
   const [exerciseSeconds, setExerciseSeconds] = useState(0);
   
@@ -39,33 +34,8 @@ export function Timer({
   const [isResting, setIsResting] = useState(false);
   const [isExercising, setIsExercising] = useState(false);
   
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const restIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const exerciseIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Cronómetro principal
-  useEffect(() => {
-    if (isRunning) {
-      intervalRef.current = setInterval(() => {
-        setTotalSeconds((prev) => {
-          const newValue = prev + 1;
-          onTimeUpdate?.(newValue);
-          return newValue;
-        });
-      }, 1000);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
-
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isRunning, onTimeUpdate]);
 
   // Countdown de descanso
   useEffect(() => {
@@ -151,29 +121,6 @@ export function Timer({
     }
   }, [isExercising, exerciseCountdownEnabled, onExerciseTimeUpdate]);
 
-  const handleStart = () => {
-    setIsRunning(true);
-  };
-
-  const handlePause = () => {
-    setIsRunning(false);
-    setIsResting(false);
-    setIsExercising(false);
-  };
-
-  const handleReset = () => {
-    setIsRunning(false);
-    setIsResting(false);
-    setIsExercising(false);
-    setTotalSeconds(0);
-    setRestSeconds(0);
-    setExerciseSeconds(0);
-    setRestCountdown(0);
-    setExerciseCountdown(0);
-    onTimeUpdate?.(0);
-    onRestTimeUpdate?.(0);
-    onExerciseTimeUpdate?.(0);
-  };
 
   const handleStartRest = () => {
     setIsResting(true);
@@ -218,48 +165,6 @@ export function Timer({
         <CardTitle className="text-lg">Cronómetro</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Cronómetro principal */}
-        <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label>Tiempo Total</Label>
-            <span className="text-2xl font-mono font-bold">
-              {formatTime(totalSeconds)}
-            </span>
-          </div>
-          <div className="flex gap-2">
-            {!isRunning ? (
-              <Button
-                type="button"
-                onClick={handleStart}
-                size="sm"
-                className="flex-1"
-              >
-                <Play className="h-4 w-4 mr-2" />
-                Iniciar
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                onClick={handlePause}
-                size="sm"
-                variant="outline"
-                className="flex-1"
-              >
-                <Pause className="h-4 w-4 mr-2" />
-                Pausar
-              </Button>
-            )}
-            <Button
-              type="button"
-              onClick={handleReset}
-              size="sm"
-              variant="outline"
-            >
-              <RotateCcw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-
         {/* Control de ejercicio */}
         <div className="space-y-2 border-t pt-4">
           <div className="flex items-center justify-between">
@@ -278,7 +183,6 @@ export function Timer({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={!isRunning}
               >
                 Iniciar Ejercicio
               </Button>
@@ -339,7 +243,6 @@ export function Timer({
                 size="sm"
                 variant="outline"
                 className="flex-1"
-                disabled={!isRunning}
               >
                 Iniciar Descanso
               </Button>

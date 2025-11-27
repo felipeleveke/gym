@@ -127,15 +127,6 @@ export async function POST(request: NextRequest) {
       if (!trainingInfo.date) {
         return NextResponse.json({ error: 'La fecha es requerida' }, { status: 400 });
       }
-      if (!trainingInfo.duration || isNaN(Number(trainingInfo.duration))) {
-        return NextResponse.json({ error: 'La duración es requerida y debe ser un número' }, { status: 400 });
-      }
-
-      // Convertir duration a número
-      const duration = Number(trainingInfo.duration);
-      if (duration <= 0) {
-        return NextResponse.json({ error: 'La duración debe ser mayor a 0' }, { status: 400 });
-      }
 
       // Validar y convertir fechas
       let dateValue: string;
@@ -163,6 +154,26 @@ export async function POST(request: NextRequest) {
         } catch {
           return NextResponse.json({ error: 'Formato de hora de fin inválido' }, { status: 400 });
         }
+      }
+
+      // Calcular duración automáticamente si no se proporciona pero hay start_time y end_time
+      let duration: number;
+      if (trainingInfo.duration !== undefined && trainingInfo.duration !== null) {
+        duration = Number(trainingInfo.duration);
+        if (isNaN(duration) || duration <= 0) {
+          return NextResponse.json({ error: 'La duración debe ser un número mayor a 0' }, { status: 400 });
+        }
+      } else if (startTimeValue && endTimeValue) {
+        // Calcular duración automáticamente desde start_time y end_time
+        const start = new Date(startTimeValue).getTime();
+        const end = new Date(endTimeValue).getTime();
+        const diffInMinutes = Math.round((end - start) / (1000 * 60));
+        if (diffInMinutes <= 0) {
+          return NextResponse.json({ error: 'La hora de término debe ser posterior a la hora de inicio' }, { status: 400 });
+        }
+        duration = diffInMinutes;
+      } else {
+        return NextResponse.json({ error: 'Debes proporcionar la duración o las horas de inicio y término' }, { status: 400 });
       }
 
       // Crear el entrenamiento primero
@@ -264,6 +275,7 @@ export async function POST(request: NextRequest) {
               rest_time: set.rest_time !== undefined && set.rest_time !== null ? Number(set.rest_time) : null,
               rir: set.rir !== undefined && set.rir !== null ? Number(set.rir) : null,
               notes: set.notes || null,
+              set_type: set.set_type || 'working',
             }));
 
             const { error: setsError } = await supabase

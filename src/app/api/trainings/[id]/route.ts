@@ -93,15 +93,6 @@ export async function PUT(
       if (!trainingInfo.date) {
         return NextResponse.json({ error: 'La fecha es requerida' }, { status: 400 });
       }
-      if (!trainingInfo.duration || isNaN(Number(trainingInfo.duration))) {
-        return NextResponse.json({ error: 'La duración es requerida y debe ser un número' }, { status: 400 });
-      }
-
-      // Convertir duration a número
-      const duration = Number(trainingInfo.duration);
-      if (duration <= 0) {
-        return NextResponse.json({ error: 'La duración debe ser mayor a 0' }, { status: 400 });
-      }
 
       // Validar y convertir fechas
       let dateValue: string;
@@ -129,6 +120,26 @@ export async function PUT(
         } catch {
           return NextResponse.json({ error: 'Formato de hora de fin inválido' }, { status: 400 });
         }
+      }
+
+      // Calcular duración automáticamente si no se proporciona pero hay start_time y end_time
+      let duration: number;
+      if (trainingInfo.duration !== undefined && trainingInfo.duration !== null) {
+        duration = Number(trainingInfo.duration);
+        if (isNaN(duration) || duration <= 0) {
+          return NextResponse.json({ error: 'La duración debe ser un número mayor a 0' }, { status: 400 });
+        }
+      } else if (startTimeValue && endTimeValue) {
+        // Calcular duración automáticamente desde start_time y end_time
+        const start = new Date(startTimeValue).getTime();
+        const end = new Date(endTimeValue).getTime();
+        const diffInMinutes = Math.round((end - start) / (1000 * 60));
+        if (diffInMinutes <= 0) {
+          return NextResponse.json({ error: 'La hora de término debe ser posterior a la hora de inicio' }, { status: 400 });
+        }
+        duration = diffInMinutes;
+      } else {
+        return NextResponse.json({ error: 'Debes proporcionar la duración o las horas de inicio y término' }, { status: 400 });
       }
 
       // Actualizar el entrenamiento
@@ -244,6 +255,7 @@ export async function PUT(
               rest_time: set.rest_time !== undefined && set.rest_time !== null ? Number(set.rest_time) : null,
               rir: set.rir !== undefined && set.rir !== null ? Number(set.rir) : null,
               notes: set.notes || null,
+              set_type: set.set_type || 'working',
             }));
 
             const { error: setsError } = await supabase
@@ -293,17 +305,49 @@ export async function PUT(
         return NextResponse.json({ error: 'Training not found' }, { status: 404 });
       }
 
+      // Validar datos requeridos
+      if (!trainingData.date) {
+        return NextResponse.json({ error: 'La fecha es requerida' }, { status: 400 });
+      }
+      if (!trainingData.duration || isNaN(Number(trainingData.duration))) {
+        return NextResponse.json({ error: 'La duración es requerida y debe ser un número' }, { status: 400 });
+      }
+
+      // Preparar datos de actualización con manejo explícito de campos opcionales
+      const updateData: any = {
+        sport_type: trainingData.sport_type || 'other',
+        date: new Date(trainingData.date).toISOString(),
+        duration: Number(trainingData.duration),
+        notes: trainingData.notes || null,
+        tags: trainingData.tags || null,
+        updated_at: new Date().toISOString(),
+      };
+
+      // Agregar campos opcionales solo si están presentes
+      if (trainingData.distance !== undefined) updateData.distance = trainingData.distance !== null ? Number(trainingData.distance) : null;
+      if (trainingData.avg_speed !== undefined) updateData.avg_speed = trainingData.avg_speed !== null ? Number(trainingData.avg_speed) : null;
+      if (trainingData.max_speed !== undefined) updateData.max_speed = trainingData.max_speed !== null ? Number(trainingData.max_speed) : null;
+      if (trainingData.avg_heart_rate !== undefined) updateData.avg_heart_rate = trainingData.avg_heart_rate !== null ? Number(trainingData.avg_heart_rate) : null;
+      if (trainingData.max_heart_rate !== undefined) updateData.max_heart_rate = trainingData.max_heart_rate !== null ? Number(trainingData.max_heart_rate) : null;
+      if (trainingData.elevation !== undefined) updateData.elevation = trainingData.elevation !== null ? Number(trainingData.elevation) : null;
+      if (trainingData.temperature !== undefined) updateData.temperature = trainingData.temperature !== null ? Number(trainingData.temperature) : null;
+      if (trainingData.terrain !== undefined) updateData.terrain = trainingData.terrain || null;
+      if (trainingData.weather !== undefined) updateData.weather = trainingData.weather || null;
+
       const { data, error } = await supabase
         .from('sport_trainings')
-        .update({
-          ...trainingData,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', id)
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error updating sport training:', error);
+        return NextResponse.json(
+          { error: error.message || 'Error al actualizar el entrenamiento' },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ data });
     }
 

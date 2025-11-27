@@ -14,7 +14,6 @@ import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, Plus, Clock } from 'lucide-react';
 import { ExerciseSelector } from './exercise-selector';
 import { ExerciseForm } from './exercise-form';
-import { Timer } from './timer';
 
 interface Exercise {
   id: string;
@@ -33,6 +32,7 @@ interface ExerciseSet {
   rest_time?: number | null;
   rir?: number | null;
   notes?: string | null;
+  set_type?: 'warmup' | 'approach' | 'working' | null;
 }
 
 interface TrainingExercise {
@@ -44,8 +44,6 @@ interface TrainingExercise {
 }
 
 const gymTrainingSchema = z.object({
-  date: z.string().min(1, 'La fecha es requerida'),
-  duration: z.coerce.number().min(1, 'La duración debe ser mayor a 0').max(600, 'La duración no puede ser mayor a 600 minutos'),
   notes: z.string().optional(),
   tags: z.string().optional(),
 });
@@ -54,16 +52,105 @@ type GymTrainingFormData = z.infer<typeof gymTrainingSchema>;
 
 interface GymTrainingFormDetailedProps {
   onBack: () => void;
+  initialData?: any;
+  trainingId?: string;
 }
 
-export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps) {
+export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: GymTrainingFormDetailedProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
-  const [exercises, setExercises] = useState<TrainingExercise[]>([]);
-  const [trainingStartTime, setTrainingStartTime] = useState<string | null>(null);
-  const [trainingEndTime, setTrainingEndTime] = useState<string | null>(null);
+  
+  // Pre-poblar ejercicios si hay initialData
+  const [exercises, setExercises] = useState<TrainingExercise[]>(() => {
+    if (!initialData?.training_exercises || !Array.isArray(initialData.training_exercises)) {
+      return [];
+    }
+    return initialData.training_exercises
+      .sort((a: any, b: any) => a.order_index - b.order_index)
+      .map((te: any) => ({
+        exercise: te.exercise || {
+          id: te.exercise_id,
+          name: 'Ejercicio desconocido',
+        },
+        sets: (te.exercise_sets || [])
+          .sort((a: any, b: any) => a.set_number - b.set_number)
+          .map((set: any) => ({
+            id: set.id,
+            set_number: set.set_number,
+            weight: set.weight,
+            reps: set.reps,
+            duration: set.duration,
+            rest_time: set.rest_time,
+            rir: set.rir,
+            notes: set.notes,
+            set_type: set.set_type || 'working',
+          })),
+        notes: te.notes || '',
+        start_time: te.start_time,
+        end_time: te.end_time,
+      }));
+  });
+  
+  // Pre-poblar tiempos del entrenamiento
+  const [trainingStartTime, setTrainingStartTime] = useState<string | null>(initialData?.start_time || null);
+  const [trainingEndTime, setTrainingEndTime] = useState<string | null>(initialData?.end_time || null);
+  
+  // Tiempo predeterminado de descanso para el countdown (en segundos)
+  const [defaultRestTime, setDefaultRestTime] = useState<number>(60);
+
+  // Calcular duración automáticamente cuando hay start_time y end_time
+  const calculatedDuration = trainingStartTime && trainingEndTime
+    ? Math.round((new Date(trainingEndTime).getTime() - new Date(trainingStartTime).getTime()) / (1000 * 60))
+    : null;
+
+  // Calcular totales de tiempo de ejercicio y descanso
+  const totalExerciseTime = exercises.reduce((total, ex) => {
+    return total + (ex.sets.reduce((setTotal, set) => {
+      return setTotal + (set.duration || 0);
+    }, 0));
+  }, 0);
+
+  const totalRestTime = exercises.reduce((total, ex) => {
+    return total + (ex.sets.reduce((setTotal, set) => {
+      return setTotal + (set.rest_time || 0);
+    }, 0));
+  }, 0);
+
+  // Calcular porcentaje de tiempo de ejercicio sobre descanso
+  const exercisePercentage = totalRestTime > 0 
+    ? Math.round((totalExerciseTime / (totalExerciseTime + totalRestTime)) * 100)
+    : totalExerciseTime > 0 ? 100 : 0;
+
+  const formatTime = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    
+    if (hrs > 0) {
+      return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleFirstExerciseStart = () => {
+    // Establecer automáticamente la hora de inicio si no está establecida
+    if (!trainingStartTime) {
+      const now = new Date().toISOString();
+      setTrainingStartTime(now);
+      toast({
+        title: 'Inicio automático',
+        description: `Hora de inicio establecida: ${new Date(now).toLocaleTimeString()}`,
+      });
+    }
+  };
+
+  // Pre-poblar valores del formulario
+  const defaultNotes = initialData?.notes || '';
+  const defaultTags = initialData?.tags 
+    ? (Array.isArray(initialData.tags) ? initialData.tags.join(', ') : initialData.tags)
+    : '';
 
   const {
     register,
@@ -72,8 +159,8 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
   } = useForm<GymTrainingFormData>({
     resolver: zodResolver(gymTrainingSchema),
     defaultValues: {
-      date: new Date().toISOString().slice(0, 10),
-      duration: 60,
+      notes: defaultNotes,
+      tags: defaultTags,
     },
   });
 
@@ -86,6 +173,7 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
           set_number: 1,
           weight: null,
           reps: null,
+          set_type: 'working',
         },
       ],
       notes: '',
@@ -113,26 +201,39 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
     });
   };
 
-  const handleMarkExerciseStart = (index: number) => {
-    const now = new Date().toISOString();
-    const newExercises = [...exercises];
-    newExercises[index].start_time = now;
-    setExercises(newExercises);
-    toast({
-      title: 'Ejercicio iniciado',
-      description: `${exercises[index].exercise.name} iniciado a las ${new Date(now).toLocaleTimeString()}`,
-    });
+
+  const handleTrainingStartTimeChange = (value: string) => {
+    if (value) {
+      // Convertir datetime-local a ISO string
+      const date = new Date(value);
+      setTrainingStartTime(date.toISOString());
+    } else {
+      setTrainingStartTime(null);
+    }
   };
 
-  const handleMarkExerciseEnd = (index: number) => {
-    const now = new Date().toISOString();
-    const newExercises = [...exercises];
-    newExercises[index].end_time = now;
-    setExercises(newExercises);
-    toast({
-      title: 'Ejercicio terminado',
-      description: `${exercises[index].exercise.name} terminado a las ${new Date(now).toLocaleTimeString()}`,
-    });
+  const handleTrainingEndTimeChange = (value: string) => {
+    if (value) {
+      // Convertir datetime-local a ISO string
+      const date = new Date(value);
+      setTrainingEndTime(date.toISOString());
+    } else {
+      setTrainingEndTime(null);
+    }
+  };
+
+
+  // Función helper para convertir ISO string a datetime-local format
+  const toDateTimeLocal = (isoString: string | null | undefined): string => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    // Ajustar por zona horaria local
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const handleRemoveExercise = (index: number) => {
@@ -191,21 +292,44 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
         ? data.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
         : [];
 
-      // Combinar fecha con hora de inicio si existe, sino usar fecha actual
-      const trainingDate = trainingStartTime 
-        ? new Date(trainingStartTime).toISOString()
-        : new Date(data.date + 'T00:00:00').toISOString();
+      // Usar la fecha de inicio si existe, sino usar fecha actual
+      if (!trainingStartTime) {
+        toast({
+          title: 'Error',
+          description: 'Debes especificar la hora de inicio del entrenamiento',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+        return;
+      }
 
-      // Crear el entrenamiento con ejercicios y series
-      const response = await fetch('/api/trainings', {
-        method: 'POST',
+      const trainingDate = new Date(trainingStartTime).toISOString();
+
+      // Calcular duración automáticamente si hay start_time y end_time
+      let calculatedDuration: number | null = null;
+      if (trainingStartTime && trainingEndTime) {
+        const start = new Date(trainingStartTime).getTime();
+        const end = new Date(trainingEndTime).getTime();
+        const diffInMinutes = Math.round((end - start) / (1000 * 60));
+        if (diffInMinutes > 0) {
+          calculatedDuration = diffInMinutes;
+        }
+      }
+
+      const isEditMode = !!trainingId;
+      const url = isEditMode ? `/api/trainings/${trainingId}` : '/api/trainings';
+      const method = isEditMode ? 'PUT' : 'POST';
+
+      // Crear o actualizar el entrenamiento con ejercicios y series
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           type: 'gym',
           date: trainingDate,
-          duration: data.duration,
+          duration: calculatedDuration,
           start_time: trainingStartTime,
           end_time: trainingEndTime,
           notes: data.notes || null,
@@ -222,31 +346,32 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
               rest_time: set.rest_time,
               rir: set.rir,
               notes: set.notes || null,
+              set_type: set.set_type || 'working',
             })),
-            start_time: ex.start_time || null,
-            end_time: ex.end_time || null,
+            start_time: null,
+            end_time: null,
           })),
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Error al crear el entrenamiento');
+        throw new Error(error.error || `Error al ${isEditMode ? 'actualizar' : 'crear'} el entrenamiento`);
       }
 
       const result = await response.json();
       
       toast({
-        title: 'Entrenamiento creado',
-        description: `Tu entrenamiento con ${exercisesWithValidSets.length} ejercicio(s) ha sido registrado exitosamente.`,
+        title: isEditMode ? 'Entrenamiento actualizado' : 'Entrenamiento creado',
+        description: `Tu entrenamiento con ${exercisesWithValidSets.length} ejercicio(s) ha sido ${isEditMode ? 'actualizado' : 'registrado'} exitosamente.`,
       });
 
       router.push('/trainings');
     } catch (error) {
-      console.error('Error creating gym training:', error);
+      console.error(`Error ${trainingId ? 'updating' : 'creating'} gym training:`, error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'No se pudo crear el entrenamiento',
+        description: error instanceof Error ? error.message : `No se pudo ${trainingId ? 'actualizar' : 'crear'} el entrenamiento`,
         variant: 'destructive',
       });
     } finally {
@@ -276,96 +401,119 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <CardTitle>Nuevo Entrenamiento de Gimnasio</CardTitle>
+            <CardTitle>{trainingId ? 'Editar Entrenamiento de Gimnasio' : 'Nuevo Entrenamiento de Gimnasio'}</CardTitle>
           </div>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            {/* Información básica */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="date">Fecha</Label>
-                <Input
-                  id="date"
-                  type="date"
-                  {...register('date', {
-                    setValueAs: (value) => {
-                      // Mantener solo la fecha, sin hora
-                      return value;
-                    },
-                  })}
-                  defaultValue={new Date().toISOString().slice(0, 10)}
-                  disabled={isSubmitting}
-                />
-                {errors.date && (
-                  <p className="text-sm text-destructive">{errors.date.message}</p>
-                )}
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="duration">Duración (minutos)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  max="600"
-                  {...register('duration')}
-                  disabled={isSubmitting}
-                />
-                {errors.duration && (
-                  <p className="text-sm text-destructive">{errors.duration.message}</p>
-                )}
-              </div>
-            </div>
-
             {/* Control de tiempo del entrenamiento */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 border rounded-lg bg-muted/50">
-              <div className="space-y-2">
-                <Label>Hora de Inicio del Entrenamiento</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    value={trainingStartTime ? new Date(trainingStartTime).toLocaleTimeString() : 'No registrada'}
-                    disabled
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleMarkTrainingStart}
-                    variant="outline"
-                    size="sm"
-                    disabled={isSubmitting || !!trainingStartTime}
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    Marcar Inicio
-                  </Button>
+            <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="training-start-time">Hora de Inicio del Entrenamiento</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="training-start-time"
+                      type="datetime-local"
+                      value={toDateTimeLocal(trainingStartTime)}
+                      onChange={(e) => handleTrainingStartTimeChange(e.target.value)}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                      required
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleMarkTrainingStart}
+                      variant="outline"
+                      size="sm"
+                      disabled={isSubmitting}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Ahora
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="training-end-time">Hora de Término del Entrenamiento</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      id="training-end-time"
+                      type="datetime-local"
+                      value={toDateTimeLocal(trainingEndTime)}
+                      onChange={(e) => handleTrainingEndTimeChange(e.target.value)}
+                      disabled={isSubmitting}
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      onClick={handleMarkTrainingEnd}
+                      variant="outline"
+                      size="sm"
+                      disabled={isSubmitting}
+                    >
+                      <Clock className="h-4 w-4 mr-2" />
+                      Ahora
+                    </Button>
+                  </div>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Hora de Término del Entrenamiento</Label>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="text"
-                    value={trainingEndTime ? new Date(trainingEndTime).toLocaleTimeString() : 'No registrada'}
-                    disabled
-                    className="flex-1"
-                  />
-                  <Button
-                    type="button"
-                    onClick={handleMarkTrainingEnd}
-                    variant="outline"
-                    size="sm"
-                    disabled={isSubmitting || !!trainingEndTime}
-                  >
-                    <Clock className="h-4 w-4 mr-2" />
-                    Marcar Término
-                  </Button>
+              {calculatedDuration !== null && calculatedDuration > 0 && (
+                <div className="pt-2 border-t">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium">Duración Calculada</Label>
+                    <span className="text-lg font-semibold text-primary">
+                      {calculatedDuration} {calculatedDuration === 1 ? 'minuto' : 'minutos'}
+                    </span>
+                  </div>
                 </div>
+              )}
+              {(totalExerciseTime > 0 || totalRestTime > 0) && (
+                <div className="pt-2 border-t space-y-2">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Tiempo Ejercicio</Label>
+                      <div className="text-sm font-semibold text-primary">
+                        {formatTime(totalExerciseTime)}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Tiempo Descanso</Label>
+                      <div className="text-sm font-semibold text-muted-foreground">
+                        {formatTime(totalRestTime)}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs text-muted-foreground">% Tiempo Ejercicio</Label>
+                      <span className="text-lg font-semibold text-primary">
+                        {exercisePercentage}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div className="pt-2 border-t">
+                <div className="flex items-center justify-between gap-2">
+                  <Label htmlFor="default-rest-time" className="text-sm">
+                    Tiempo Predeterminado de Descanso (segundos)
+                  </Label>
+                  <Input
+                    id="default-rest-time"
+                    type="number"
+                    min="1"
+                    max="600"
+                    value={defaultRestTime}
+                    onChange={(e) => setDefaultRestTime(parseInt(e.target.value) || 60)}
+                    className="w-24 h-9"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Este tiempo se usará como predeterminado para el countdown de descanso. Puede ser sobrescrito en cada serie.
+                </p>
               </div>
             </div>
-
-            {/* Cronómetro */}
-            <Timer />
 
             {/* Ejercicios */}
             <div className="space-y-4">
@@ -406,6 +554,8 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
                         exerciseIndex={index}
                         sets={trainingExercise.sets}
                         notes={trainingExercise.notes}
+                        isLastExercise={index === exercises.length - 1}
+                        defaultRestTime={defaultRestTime}
                         onUpdateSets={(sets) => handleUpdateExerciseSets(index, sets)}
                         onUpdateNotes={(notes) => handleUpdateExerciseNotes(index, notes)}
                         onRemove={() => handleRemoveExercise(index)}
@@ -417,54 +567,17 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
                         }
                         canMoveUp={index > 0}
                         canMoveDown={index < exercises.length - 1}
+                        onFirstExerciseStart={index === 0 ? handleFirstExerciseStart : undefined}
+                        onTrainingComplete={() => {
+                          // Marcar hora de término del entrenamiento
+                          const now = new Date().toISOString();
+                          setTrainingEndTime(now);
+                          toast({
+                            title: 'Entrenamiento completado',
+                            description: `Hora de término: ${new Date(now).toLocaleTimeString()}`,
+                          });
+                        }}
                       />
-                      {/* Control de tiempo del ejercicio */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3 border rounded-md bg-muted/30">
-                        <div className="space-y-1">
-                          <Label className="text-xs">Hora de Inicio</Label>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="text"
-                              value={trainingExercise.start_time ? new Date(trainingExercise.start_time).toLocaleTimeString() : 'No registrada'}
-                              disabled
-                              className="flex-1 h-8 text-xs"
-                            />
-                            <Button
-                              type="button"
-                              onClick={() => handleMarkExerciseStart(index)}
-                              variant="outline"
-                              size="sm"
-                              disabled={isSubmitting || !!trainingExercise.start_time}
-                              className="h-8"
-                            >
-                              <Clock className="h-3 w-3 mr-1" />
-                              Inicio
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <Label className="text-xs">Hora de Término</Label>
-                          <div className="flex items-center gap-2">
-                            <Input
-                              type="text"
-                              value={trainingExercise.end_time ? new Date(trainingExercise.end_time).toLocaleTimeString() : 'No registrada'}
-                              disabled
-                              className="flex-1 h-8 text-xs"
-                            />
-                            <Button
-                              type="button"
-                              onClick={() => handleMarkExerciseEnd(index)}
-                              variant="outline"
-                              size="sm"
-                              disabled={isSubmitting || !!trainingExercise.end_time}
-                              className="h-8"
-                            >
-                              <Clock className="h-3 w-3 mr-1" />
-                              Término
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
                     </div>
                   ))}
                 </div>
@@ -501,7 +614,7 @@ export function GymTrainingFormDetailed({ onBack }: GymTrainingFormDetailedProps
               </Button>
               <Button type="submit" disabled={isSubmitting || exercises.length === 0}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Crear Entrenamiento
+                {trainingId ? 'Actualizar Entrenamiento' : 'Crear Entrenamiento'}
               </Button>
             </div>
           </form>
