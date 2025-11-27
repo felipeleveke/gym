@@ -1,29 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { formatDate, formatTime, formatDateRelative } from '@/lib/utils';
-import { Dumbbell, Clock, Tag, ChevronDown, ChevronUp, MoreVertical, Edit, Copy, Trash2 } from 'lucide-react';
+import { Dumbbell, Clock, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
+import { Checkbox } from '@/components/ui/checkbox';
+import { cn } from '@/lib/utils';
 
 interface ExerciseSet {
   id: string;
@@ -57,15 +41,17 @@ interface GymTrainingCardProps {
     training_exercises?: TrainingExercise[];
   };
   showDateHeader?: boolean;
+  isSelected?: boolean;
+  onSelectChange?: (selected: boolean) => void;
 }
 
-export function GymTrainingCard({ training, showDateHeader = false }: GymTrainingCardProps) {
-  const router = useRouter();
-  const { toast } = useToast();
+export function GymTrainingCard({ 
+  training, 
+  showDateHeader = false,
+  isSelected = false,
+  onSelectChange
+}: GymTrainingCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isDuplicating, setIsDuplicating] = useState(false);
   
   const exerciseCount = training.training_exercises?.length || 0;
   const totalSets = training.training_exercises?.reduce(
@@ -77,83 +63,27 @@ export function GymTrainingCard({ training, showDateHeader = false }: GymTrainin
     ? [...training.training_exercises].sort((a, b) => a.order_index - b.order_index)
     : [];
 
-  const handleEdit = () => {
-    router.push(`/trainings/${training.id}/edit`);
-  };
-
-  const handleDuplicate = async () => {
-    setIsDuplicating(true);
-    try {
-      const response = await fetch(`/api/trainings/${training.id}/duplicate`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al duplicar el entrenamiento');
-      }
-
-      toast({
-        title: 'Entrenamiento duplicado',
-        description: 'El entrenamiento se ha duplicado exitosamente.',
-      });
-
-      // Disparar evento para refrescar la lista
-      window.dispatchEvent(new Event('training-updated'));
-      
-      // Recargar la página para mostrar el nuevo entrenamiento
-      setTimeout(() => router.refresh(), 500);
-    } catch (error) {
-      console.error('Error duplicating training:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo duplicar el entrenamiento',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDuplicating(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      const response = await fetch(`/api/trainings/${training.id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Error al eliminar el entrenamiento');
-      }
-
-      toast({
-        title: 'Entrenamiento eliminado',
-        description: 'El entrenamiento se ha eliminado exitosamente.',
-      });
-
-      // Disparar evento para refrescar la lista
-      window.dispatchEvent(new Event('training-updated'));
-      
-      // Recargar la página para actualizar la lista
-      setTimeout(() => router.refresh(), 500);
-    } catch (error) {
-      console.error('Error deleting training:', error);
-      toast({
-        title: 'Error',
-        description: 'No se pudo eliminar el entrenamiento',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDeleting(false);
-      setShowDeleteDialog(false);
-    }
+  const handleCheckboxChange = (checked: boolean) => {
+    onSelectChange?.(checked);
   };
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
+    <Card className={cn(
+      "hover:shadow-md transition-shadow",
+      isSelected && "ring-2 ring-primary"
+    )}>
       <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2">
-            <div className="p-2 rounded-md bg-primary/10 text-primary">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {onSelectChange && (
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={handleCheckboxChange}
+                onClick={(e) => e.stopPropagation()}
+                className="shrink-0"
+              />
+            )}
+            <div className="p-2 rounded-md bg-primary/10 text-primary shrink-0">
               <Dumbbell className="h-4 w-4" />
             </div>
             <div>
@@ -165,46 +95,12 @@ export function GymTrainingCard({ training, showDateHeader = false }: GymTrainin
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {!showDateHeader && (
-              <div className="text-right">
-                <p className="text-sm font-medium">{formatDateRelative(training.date)}</p>
-                <p className="text-xs text-muted-foreground">{formatTime(training.date)}</p>
-              </div>
-            )}
-            <div onClick={(e) => e.stopPropagation()} onPointerDown={(e) => e.stopPropagation()}>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0"
-                    onClick={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                  >
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenuItem onSelect={handleEdit}>
-                    <Edit className="h-4 w-4 mr-2" />
-                    Editar
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={handleDuplicate} disabled={isDuplicating}>
-                    <Copy className="h-4 w-4 mr-2" />
-                    {isDuplicating ? 'Duplicando...' : 'Duplicar'}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onSelect={() => setShowDeleteDialog(true)}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4 mr-2" />
-                    Eliminar
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          {!showDateHeader && (
+            <div className="text-right">
+              <p className="text-sm font-medium">{formatDateRelative(training.date)}</p>
+              <p className="text-xs text-muted-foreground">{formatTime(training.date)}</p>
             </div>
-          </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -304,27 +200,6 @@ export function GymTrainingCard({ training, showDateHeader = false }: GymTrainin
         )}
       </CardContent>
 
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar entrenamiento?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción no se puede deshacer. Se eliminará permanentemente este entrenamiento
-              y todos sus datos asociados.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={isDeleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {isDeleting ? 'Eliminando...' : 'Eliminar'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </Card>
   );
 }

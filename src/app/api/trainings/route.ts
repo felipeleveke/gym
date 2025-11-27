@@ -123,27 +123,110 @@ export async function POST(request: NextRequest) {
     if (type === 'gym') {
       const { exercises, ...trainingInfo } = trainingData;
       
+      // Validar datos requeridos
+      if (!trainingInfo.date) {
+        return NextResponse.json({ error: 'La fecha es requerida' }, { status: 400 });
+      }
+      if (!trainingInfo.duration || isNaN(Number(trainingInfo.duration))) {
+        return NextResponse.json({ error: 'La duración es requerida y debe ser un número' }, { status: 400 });
+      }
+
+      // Convertir duration a número
+      const duration = Number(trainingInfo.duration);
+      if (duration <= 0) {
+        return NextResponse.json({ error: 'La duración debe ser mayor a 0' }, { status: 400 });
+      }
+
+      // Validar y convertir fechas
+      let dateValue: string;
+      try {
+        dateValue = new Date(trainingInfo.date).toISOString();
+      } catch {
+        return NextResponse.json({ error: 'Formato de fecha inválido' }, { status: 400 });
+      }
+
+      // Validar y convertir tiempos si existen
+      let startTimeValue: string | null = null;
+      let endTimeValue: string | null = null;
+      
+      if (trainingInfo.start_time) {
+        try {
+          startTimeValue = new Date(trainingInfo.start_time).toISOString();
+        } catch {
+          return NextResponse.json({ error: 'Formato de hora de inicio inválido' }, { status: 400 });
+        }
+      }
+
+      if (trainingInfo.end_time) {
+        try {
+          endTimeValue = new Date(trainingInfo.end_time).toISOString();
+        } catch {
+          return NextResponse.json({ error: 'Formato de hora de fin inválido' }, { status: 400 });
+        }
+      }
+
       // Crear el entrenamiento primero
       const { data: training, error: trainingError } = await supabase
         .from('gym_trainings')
         .insert({
           user_id: user.id,
-          date: trainingInfo.date,
-          duration: trainingInfo.duration,
-          start_time: trainingInfo.start_time || null,
-          end_time: trainingInfo.end_time || null,
+          date: dateValue,
+          duration: duration,
+          start_time: startTimeValue,
+          end_time: endTimeValue,
           notes: trainingInfo.notes || null,
           tags: trainingInfo.tags || null,
         })
         .select()
         .single();
 
-      if (trainingError) throw trainingError;
+      if (trainingError) {
+        console.error('Error inserting training:', trainingError);
+        return NextResponse.json(
+          { error: trainingError.message || 'Error al crear el entrenamiento' },
+          { status: 400 }
+        );
+      }
+
+      if (!training) {
+        return NextResponse.json({ error: 'No se pudo crear el entrenamiento' }, { status: 500 });
+      }
 
       // Si hay ejercicios, crearlos junto con sus series
       if (exercises && Array.isArray(exercises) && exercises.length > 0) {
         for (const exerciseData of exercises) {
           const { exercise_id, order_index, notes, sets, start_time, end_time } = exerciseData;
+
+          // Validar datos del ejercicio
+          if (!exercise_id) {
+            console.error('Exercise ID missing:', exerciseData);
+            continue; // Saltar este ejercicio y continuar con el siguiente
+          }
+
+          if (!order_index || isNaN(Number(order_index))) {
+            console.error('Order index missing or invalid:', exerciseData);
+            continue;
+          }
+
+          // Validar y convertir tiempos del ejercicio si existen
+          let exerciseStartTime: string | null = null;
+          let exerciseEndTime: string | null = null;
+
+          if (start_time) {
+            try {
+              exerciseStartTime = new Date(start_time).toISOString();
+            } catch (error) {
+              console.error('Invalid exercise start_time:', start_time);
+            }
+          }
+
+          if (end_time) {
+            try {
+              exerciseEndTime = new Date(end_time).toISOString();
+            } catch (error) {
+              console.error('Invalid exercise end_time:', end_time);
+            }
+          }
 
           // Crear el ejercicio en el entrenamiento
           const { data: trainingExercise, error: exerciseError } = await supabase
@@ -151,26 +234,35 @@ export async function POST(request: NextRequest) {
             .insert({
               training_id: training.id,
               exercise_id,
-              order_index,
+              order_index: Number(order_index),
               notes: notes || null,
-              start_time: start_time || null,
-              end_time: end_time || null,
+              start_time: exerciseStartTime,
+              end_time: exerciseEndTime,
             })
             .select()
             .single();
 
-          if (exerciseError) throw exerciseError;
+          if (exerciseError) {
+            console.error('Error inserting exercise:', exerciseError);
+            // Continuar con el siguiente ejercicio en lugar de fallar completamente
+            continue;
+          }
+
+          if (!trainingExercise) {
+            console.error('No training exercise returned');
+            continue;
+          }
 
           // Crear las series del ejercicio
           if (sets && Array.isArray(sets) && sets.length > 0) {
             const setsToInsert = sets.map((set: any) => ({
               training_exercise_id: trainingExercise.id,
-              set_number: set.set_number,
-              weight: set.weight || null,
-              reps: set.reps || null,
-              duration: set.duration || null,
-              rest_time: set.rest_time || null,
-              rir: set.rir || null,
+              set_number: Number(set.set_number) || 1,
+              weight: set.weight !== undefined && set.weight !== null ? Number(set.weight) : null,
+              reps: set.reps !== undefined && set.reps !== null ? Number(set.reps) : null,
+              duration: set.duration !== undefined && set.duration !== null ? Number(set.duration) : null,
+              rest_time: set.rest_time !== undefined && set.rest_time !== null ? Number(set.rest_time) : null,
+              rir: set.rir !== undefined && set.rir !== null ? Number(set.rir) : null,
               notes: set.notes || null,
             }));
 
@@ -178,7 +270,10 @@ export async function POST(request: NextRequest) {
               .from('exercise_sets')
               .insert(setsToInsert);
 
-            if (setsError) throw setsError;
+            if (setsError) {
+              console.error('Error inserting sets:', setsError);
+              // Continuar aunque haya error en las series
+            }
           }
         }
       }
@@ -197,7 +292,11 @@ export async function POST(request: NextRequest) {
         .eq('id', training.id)
         .single();
 
-      if (fetchError) throw fetchError;
+      if (fetchError) {
+        console.error('Error fetching full training:', fetchError);
+        // Devolver el entrenamiento básico si hay error al obtener relaciones
+        return NextResponse.json({ data: training }, { status: 201 });
+      }
 
       return NextResponse.json({ data: fullTraining }, { status: 201 });
     }
@@ -212,15 +311,22 @@ export async function POST(request: NextRequest) {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error creating sport training:', error);
+        return NextResponse.json(
+          { error: error.message || 'Error al crear el entrenamiento deportivo' },
+          { status: 400 }
+        );
+      }
       return NextResponse.json({ data }, { status: 201 });
     }
 
     return NextResponse.json({ error: 'Invalid type parameter' }, { status: 400 });
   } catch (error) {
     console.error('Error creating training:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error interno del servidor';
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: errorMessage },
       { status: 500 }
     );
   }

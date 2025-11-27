@@ -5,3 +5,6 @@ export function SportTrainingFormEdit({ training }: { training: any }) {
   return <div>Edición de entrenamientos deportivos en desarrollo</div>;
 }
 
+
+
+

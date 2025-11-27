@@ -118,3 +118,6 @@ export function EditTrainingClient({ trainingId }: EditTrainingClientProps) {
   );
 }
 
+
+
+

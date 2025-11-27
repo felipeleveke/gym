@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { GymTrainingCard } from './gym-training-card';
 import { SportTrainingCard } from './sport-training-card';
+import { GymTrainingListItem } from './gym-training-list-item';
+import { SportTrainingListItem } from './sport-training-list-item';
 import { formatDate, isSameDay } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,12 +16,23 @@ interface Training {
   [key: string]: any;
 }
 
+type ViewMode = 'cards' | 'list';
+
 interface TrainingsListProps {
   trainings: Training[];
   loading?: boolean;
+  viewMode?: ViewMode;
+  selectedIds?: Set<string>;
+  onSelectChange?: (id: string, selected: boolean) => void;
 }
 
-export function TrainingsList({ trainings, loading }: TrainingsListProps) {
+export function TrainingsList({ 
+  trainings, 
+  loading, 
+  viewMode = 'cards',
+  selectedIds = new Set(),
+  onSelectChange
+}: TrainingsListProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -86,33 +99,79 @@ export function TrainingsList({ trainings, loading }: TrainingsListProps) {
                 {dayTrainings.length} entrenamiento{dayTrainings.length !== 1 ? 's' : ''}
               </span>
             </div>
-            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-              {dayTrainings.map((training) => {
-                if (training.training_type === 'gym') {
-                  return (
-                    <GymTrainingCard
-                      key={training.id}
-                      training={training}
-                      showDateHeader={false}
-                    />
-                  );
-                } else {
-                  return (
-                    <SportTrainingCard
-                      key={training.id}
-                      training={training}
-                      showDateHeader={false}
-                    />
-                  );
-                }
-              })}
-            </div>
+            {viewMode === 'cards' ? (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                {dayTrainings.map((training) => {
+                  const isSelected = selectedIds.has(training.id);
+                  const handleSelectChange = (selected: boolean) => {
+                    onSelectChange?.(training.id, selected);
+                  };
+                  
+                  if (training.training_type === 'gym') {
+                    return (
+                      <GymTrainingCard
+                        key={training.id}
+                        training={training}
+                        showDateHeader={false}
+                        isSelected={isSelected}
+                        onSelectChange={onSelectChange ? handleSelectChange : undefined}
+                      />
+                    );
+                  } else {
+                    return (
+                      <SportTrainingCard
+                        key={training.id}
+                        training={training}
+                        showDateHeader={false}
+                        isSelected={isSelected}
+                        onSelectChange={onSelectChange ? handleSelectChange : undefined}
+                      />
+                    );
+                  }
+                })}
+              </div>
+            ) : (
+              <div className="space-y-0 border border-border rounded-lg bg-card">
+                {dayTrainings.map((training, index) => {
+                  const isLast = index === dayTrainings.length - 1;
+                  const isSelected = selectedIds.has(training.id);
+                  const handleSelectChange = (selected: boolean) => {
+                    onSelectChange?.(training.id, selected);
+                  };
+                  
+                  if (training.training_type === 'gym') {
+                    return (
+                      <GymTrainingListItem
+                        key={training.id}
+                        training={training}
+                        isLast={isLast}
+                        isSelected={isSelected}
+                        onSelectChange={onSelectChange ? handleSelectChange : undefined}
+                      />
+                    );
+                  } else {
+                    return (
+                      <SportTrainingListItem
+                        key={training.id}
+                        training={training}
+                        isLast={isLast}
+                        isSelected={isSelected}
+                        onSelectChange={onSelectChange ? handleSelectChange : undefined}
+                      />
+                    );
+                  }
+                })}
+              </div>
+            )}
           </div>
         );
       })}
     </div>
   );
 }
+
+
+
 
 
 

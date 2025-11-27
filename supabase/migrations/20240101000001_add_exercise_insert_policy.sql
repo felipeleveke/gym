@@ -8,3 +8,6 @@ CREATE POLICY "Authenticated users can create exercises"
 
 
 
+
+
+
