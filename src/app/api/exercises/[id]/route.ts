@@ -219,11 +219,20 @@ export async function PUT(
     }
 
     // Si el update devolvió datos, verificar si son correctos
-    if (updateResult) {
+    if (updateResult && !updateError) {
       console.log('Update successful, result data:', JSON.stringify(updateResult, null, 2));
       
       // Verificar si los datos devueltos coinciden con los enviados
-      const returnedJson = updateResult.muscle_groups_json;
+      const resultData = updateResult as {
+        id: string;
+        name: string;
+        description?: string | null;
+        muscle_groups?: string[];
+        muscle_groups_json?: unknown;
+        equipment?: string | null;
+        instructions?: string | null;
+      };
+      const returnedJson = resultData.muscle_groups_json;
       const sentJson = updateDataToUse.muscle_groups_json;
       
       console.log('Comparing sent vs returned:');
@@ -235,14 +244,14 @@ export async function PUT(
         console.warn('Returned data does not match sent data! Using sent data instead.');
         return NextResponse.json({ 
           data: {
-            ...updateResult,
+            ...resultData,
             muscle_groups: updateDataToUse.muscle_groups,
             muscle_groups_json: updateDataToUse.muscle_groups_json,
           }
         });
       }
       
-      return NextResponse.json({ data: updateResult });
+      return NextResponse.json({ data: resultData });
     }
 
     // Si no hay datos en el resultado, hacer un select separado
