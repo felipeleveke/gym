@@ -98,7 +98,7 @@ export function PasswordForm() {
             {...register('confirmPassword')}
             disabled={loading}
           />
-          {errors.confirmPassword && (
+          {'confirmPassword' in errors && errors.confirmPassword && (
             <p className="text-sm text-destructive">
               {errors.confirmPassword.message}
             </p>
