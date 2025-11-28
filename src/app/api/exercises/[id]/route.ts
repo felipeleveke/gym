@@ -224,7 +224,7 @@ export async function PUT(
       
       // Verificar si los datos devueltos coinciden con los enviados
       // TypeScript sabe que updateResult no es un error porque verificamos !updateError
-      const returnedJson = (updateResult as Record<string, unknown>).muscle_groups_json;
+      const returnedJson = (updateResult as unknown as Record<string, unknown>).muscle_groups_json;
       const sentJson = updateDataToUse.muscle_groups_json;
       
       console.log('Comparing sent vs returned:');
@@ -236,7 +236,7 @@ export async function PUT(
         console.warn('Returned data does not match sent data! Using sent data instead.');
         return NextResponse.json({ 
           data: {
-            ...(updateResult as Record<string, unknown>),
+            ...(updateResult as unknown as Record<string, unknown>),
             muscle_groups: updateDataToUse.muscle_groups,
             muscle_groups_json: updateDataToUse.muscle_groups_json,
           }
