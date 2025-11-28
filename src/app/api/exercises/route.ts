@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
       query = query.contains('muscle_groups', [muscleGroup]);
     }
 
-    let { data, error } = await query;
+    const { data, error } = await query;
 
     // Si el error es porque muscle_groups_json no existe, intentar sin esa columna
     if (error && (error.message?.includes('muscle_groups_json') || error.code === '42703' || error.code === 'PGRST116')) {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let { data, error } = await supabase
+    const { data, error } = await supabase
       .from('exercises')
       .insert(insertData)
       .select()

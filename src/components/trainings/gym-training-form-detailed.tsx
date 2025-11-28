@@ -435,7 +435,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
   // Función para generar todos los resúmenes antes de guardar
   const generateAllSummaries = async (): Promise<{ updatedExercises: TrainingExercise[], trainingSummary: string | null }> => {
     // Crear una copia de los ejercicios para actualizar
-    let updatedExercises = [...exercises];
+    const updatedExercises = [...exercises];
     let trainingSummary: string | null = null;
 
     // Generar resúmenes para cada ejercicio que tenga notas en las series

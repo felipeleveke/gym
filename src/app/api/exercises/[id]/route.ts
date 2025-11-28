@@ -78,7 +78,7 @@ export async function PUT(
     console.log('Final update data:', JSON.stringify(updateData, null, 2));
 
     // Intentar hacer el update con muscle_groups_json primero
-    let updateDataToUse = { ...updateData };
+    const updateDataToUse = { ...updateData };
     
     // Convertir muscle_groups_json a JSONB explícitamente si es necesario
     if (updateDataToUse.muscle_groups_json) {
@@ -97,7 +97,7 @@ export async function PUT(
       selectFields += ', muscle_groups_json';
     }
     
-    let { data: updateResult, error: updateError } = await supabase
+    const { data: updateResult, error: updateError } = await supabase
       .from('exercises')
       .update(updateDataToUse)
       .eq('id', id)
@@ -158,7 +158,7 @@ export async function PUT(
         // Si el update sin select funcionó, hacer un select separado
         await new Promise(resolve => setTimeout(resolve, 200));
         
-        let { data: selectData, error: selectError } = await supabase
+        const { data: selectData, error: selectError } = await supabase
           .from('exercises')
           .select(selectFields)
           .eq('id', id)
@@ -249,7 +249,7 @@ export async function PUT(
     // Esperar un poco para asegurar que el update se haya completado
     await new Promise(resolve => setTimeout(resolve, 200));
 
-    let { data, error: selectError } = await supabase
+    const { data, error: selectError } = await supabase
       .from('exercises')
       .select(selectFields)
       .eq('id', id)

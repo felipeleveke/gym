@@ -246,14 +246,14 @@ export function ExercisesPageClient() {
               {deleteConfirmStep === 1 ? (
                 <>
                   Estás a punto de eliminar el ejercicio{' '}
-                  <strong>"{deletingExercise?.name}"</strong>. Esta acción no se puede deshacer.
+                  <strong>&quot;{deletingExercise?.name}&quot;</strong>. Esta acción no se puede deshacer.
                   <br />
                   <br />
                   Para confirmar, escribe el nombre del ejercicio:
                 </>
               ) : (
                 <>
-                  Escribe <strong>"{deletingExercise?.name}"</strong> para confirmar la eliminación:
+                  Escribe <strong>&quot;{deletingExercise?.name}&quot;</strong> para confirmar la eliminación:
                 </>
               )}
             </AlertDialogDescription>

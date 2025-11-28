@@ -397,7 +397,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
           <div className="space-y-4 p-4 border rounded-md bg-muted/50">
             <div>
               <p className="text-sm font-medium mb-1">
-                No se encontró "{search}". ¿Quieres crearlo?
+                No se encontró &quot;{search}&quot;. ¿Quieres crearlo?
               </p>
               <p className="text-xs text-muted-foreground">
                 Completa la información del ejercicio
@@ -595,7 +595,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
             <DialogDescription>
               {deleteConfirmStep === 1 ? (
                 <>
-                  ¿Estás seguro de que deseas eliminar el ejercicio <strong>"{deletingExercise?.name}"</strong>?
+                  ¿Estás seguro de que deseas eliminar el ejercicio <strong>&quot;{deletingExercise?.name}&quot;</strong>?
                   <br />
                   <br />
                   Esta acción no se puede deshacer. El ejercicio será eliminado permanentemente de la base de datos.
@@ -604,7 +604,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
                 <>
                   Para confirmar la eliminación, escribe el nombre del ejercicio:
                   <br />
-                  <strong>"{deletingExercise?.name}"</strong>
+                  <strong>&quot;{deletingExercise?.name}&quot;</strong>
                 </>
               )}
             </DialogDescription>
