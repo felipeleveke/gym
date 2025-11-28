@@ -35,10 +35,10 @@ export async function getExistingMuscleGroups(): Promise<string[]> {
     
     // Extraer todos los grupos musculares únicos
     const muscleGroupsSet = new Set<string>();
-    exercises.forEach((exercise: { muscle_groups?: string[]; muscle_groups_json?: any[] }) => {
+    exercises.forEach((exercise: { muscle_groups?: string[]; muscle_groups_json?: Array<{ name: string; type?: string; percentage?: number }> }) => {
       // Priorizar muscle_groups_json (nueva estructura)
       if (exercise.muscle_groups_json && Array.isArray(exercise.muscle_groups_json)) {
-        exercise.muscle_groups_json.forEach((mg: any) => {
+        exercise.muscle_groups_json.forEach((mg: { name: string; type?: string; percentage?: number }) => {
           if (mg.name) {
             muscleGroupsSet.add(mg.name.toLowerCase());
           }

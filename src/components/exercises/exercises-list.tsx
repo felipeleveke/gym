@@ -113,14 +113,17 @@ export function ExercisesList({
   const allSelected = exercises.length > 0 && exercises.every((ex) => selectedIds.has(ex.id));
   const someSelected = exercises.some((ex) => selectedIds.has(ex.id));
 
-  if (viewMode === 'table') {
+  // Guardar el viewMode en una constante para evitar problemas de inferencia de tipos
+  const currentViewMode: ViewMode = viewMode;
+
+  if (currentViewMode === 'table') {
     return (
       <div className="space-y-4">
         {/* Toggle de vista */}
         {onViewModeChange && (
           <div className="flex items-center justify-end gap-2">
             <Button
-              variant={viewMode === 'table' ? 'default' : 'outline'}
+              variant={currentViewMode === 'table' ? 'default' : 'outline'}
               size="sm"
               onClick={() => onViewModeChange('table')}
             >
@@ -128,7 +131,7 @@ export function ExercisesList({
               Tabla
             </Button>
             <Button
-              variant={viewMode === 'cards' ? 'default' : 'outline'}
+              variant={currentViewMode === 'cards' ? 'default' : 'outline'}
               size="sm"
               onClick={() => onViewModeChange('cards')}
             >
@@ -260,7 +263,7 @@ export function ExercisesList({
       {onViewModeChange && (
         <div className="flex items-center justify-end gap-2">
           <Button
-            variant={viewMode === 'table' ? 'default' : 'outline'}
+            variant={currentViewMode === 'table' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('table')}
           >
@@ -268,7 +271,7 @@ export function ExercisesList({
             Tabla
           </Button>
           <Button
-            variant={viewMode === 'cards' ? 'default' : 'outline'}
+            variant={currentViewMode === 'cards' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onViewModeChange('cards')}
           >
