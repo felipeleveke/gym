@@ -206,18 +206,18 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
             muscleGroupsJson = JSON.parse(muscleGroupsJson);
           } catch (e) {
             console.error('Error parsing muscle_groups_json:', e);
-            muscleGroupsJson = null;
+            muscleGroupsJson = undefined;
           }
         }
         
         setExercises(prevExercises => 
           prevExercises.map(ex => {
             if (ex.id === editingExercise.id) {
-              const updated = { 
+              const updated: Exercise = { 
                 ...ex, 
                 name: result.data.name,
                 muscle_groups: result.data.muscle_groups,
-                muscle_groups_json: Array.isArray(muscleGroupsJson) ? muscleGroupsJson : null,
+                muscle_groups_json: Array.isArray(muscleGroupsJson) ? muscleGroupsJson : undefined,
                 description: result.data.description,
                 equipment: result.data.equipment,
               };

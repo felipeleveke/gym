@@ -21,8 +21,8 @@ interface SportTrainingCardProps {
   training: {
     id: string;
     date: string;
-    duration: number;
-    sport_type: string;
+    duration?: number | null;
+    sport_type?: string | null;
     distance?: number | null;
     avg_speed?: number | null;
     max_speed?: number | null;
@@ -47,7 +47,7 @@ export function SportTrainingCard({
   onSelectChange
 }: SportTrainingCardProps) {
   
-  const sportLabel = sportTypeLabels[training.sport_type] || training.sport_type;
+  const sportLabel = training.sport_type ? (sportTypeLabels[training.sport_type] || training.sport_type) : 'Deporte';
 
   const handleCheckboxChange = (checked: boolean) => {
     onSelectChange?.(checked);
@@ -91,10 +91,12 @@ export function SportTrainingCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            <span>{training.duration} min</span>
-          </div>
+          {training.duration && (
+            <div className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              <span>{training.duration} min</span>
+            </div>
+          )}
           {training.distance && (
             <div className="flex items-center gap-1">
               <MapPin className="h-4 w-4" />

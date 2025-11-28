@@ -34,7 +34,7 @@ interface GymTrainingListItemProps {
   training: {
     id: string;
     date: string;
-    duration: number;
+    duration?: number | null;
     notes?: string | null;
     tags?: string[] | null;
     training_exercises?: TrainingExercise[];
@@ -95,10 +95,12 @@ export function GymTrainingListItem({
                 </div>
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1 flex-wrap">
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>{training.duration} min</span>
-                </div>
+                {training.duration && (
+                  <div className="flex items-center gap-1">
+                    <Clock className="h-3.5 w-3.5" />
+                    <span>{training.duration} min</span>
+                  </div>
+                )}
                 {exerciseCount > 0 && (
                   <div className="flex items-center gap-1">
                     <Dumbbell className="h-3.5 w-3.5" />

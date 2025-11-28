@@ -36,7 +36,7 @@ interface GymTrainingCardProps {
   training: {
     id: string;
     date: string;
-    duration: number;
+    duration?: number | null;
     notes?: string | null;
     tags?: string[] | null;
     training_exercises?: TrainingExercise[];
@@ -106,10 +106,12 @@ export function GymTrainingCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Clock className="h-4 w-4" />
-            <span>{training.duration} min</span>
-          </div>
+          {training.duration && (
+            <div className="flex items-center gap-1">
+              <Clock className="h-4 w-4" />
+              <span>{training.duration} min</span>
+            </div>
+          )}
           {exerciseCount > 0 && (
             <div className="flex items-center gap-1">
               <Dumbbell className="h-4 w-4" />
