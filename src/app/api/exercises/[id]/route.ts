@@ -223,16 +223,8 @@ export async function PUT(
       console.log('Update successful, result data:', JSON.stringify(updateResult, null, 2));
       
       // Verificar si los datos devueltos coinciden con los enviados
-      const resultData = updateResult as {
-        id: string;
-        name: string;
-        description?: string | null;
-        muscle_groups?: string[];
-        muscle_groups_json?: unknown;
-        equipment?: string | null;
-        instructions?: string | null;
-      };
-      const returnedJson = resultData.muscle_groups_json;
+      // TypeScript sabe que updateResult no es un error porque verificamos !updateError
+      const returnedJson = (updateResult as Record<string, unknown>).muscle_groups_json;
       const sentJson = updateDataToUse.muscle_groups_json;
       
       console.log('Comparing sent vs returned:');
@@ -244,14 +236,14 @@ export async function PUT(
         console.warn('Returned data does not match sent data! Using sent data instead.');
         return NextResponse.json({ 
           data: {
-            ...resultData,
+            ...(updateResult as Record<string, unknown>),
             muscle_groups: updateDataToUse.muscle_groups,
             muscle_groups_json: updateDataToUse.muscle_groups_json,
           }
         });
       }
       
-      return NextResponse.json({ data: resultData });
+      return NextResponse.json({ data: updateResult });
     }
 
     // Si no hay datos en el resultado, hacer un select separado
