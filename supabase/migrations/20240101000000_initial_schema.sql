@@ -1,5 +1,6 @@
 -- Enable necessary extensions
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- uuid-ossp ya no es necesario, usamos gen_random_uuid() nativo de PostgreSQL
+-- CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- pgvector extension (comentado para desarrollo local, descomentar en producción si es necesario)
 -- CREATE EXTENSION IF NOT EXISTS "pgvector";
 
@@ -21,7 +22,7 @@ CREATE TABLE public.profiles (
 
 -- Exercises catalog (catálogo de ejercicios)
 CREATE TABLE public.exercises (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   description TEXT,
   muscle_groups TEXT[] NOT NULL,
@@ -34,7 +35,7 @@ CREATE TABLE public.exercises (
 
 -- Workout routines (rutinas de entrenamiento)
 CREATE TABLE public.workout_routines (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
   description TEXT,
@@ -48,7 +49,7 @@ CREATE TABLE public.workout_routines (
 
 -- Routine exercises (ejercicios en rutinas)
 CREATE TABLE public.routine_exercises (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   routine_id UUID REFERENCES public.workout_routines(id) ON DELETE CASCADE NOT NULL,
   exercise_id UUID REFERENCES public.exercises(id) ON DELETE CASCADE NOT NULL,
   order_index INTEGER NOT NULL,
@@ -61,7 +62,7 @@ CREATE TABLE public.routine_exercises (
 
 -- Gym trainings (entrenamientos de gimnasio)
 CREATE TABLE public.gym_trainings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   routine_id UUID REFERENCES public.workout_routines(id) ON DELETE SET NULL,
   date TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -74,7 +75,7 @@ CREATE TABLE public.gym_trainings (
 
 -- Training exercises (ejercicios en un entrenamiento)
 CREATE TABLE public.training_exercises (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   training_id UUID REFERENCES public.gym_trainings(id) ON DELETE CASCADE NOT NULL,
   exercise_id UUID REFERENCES public.exercises(id) ON DELETE CASCADE NOT NULL,
   order_index INTEGER NOT NULL,
@@ -84,7 +85,7 @@ CREATE TABLE public.training_exercises (
 
 -- Exercise sets (series de ejercicios)
 CREATE TABLE public.exercise_sets (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   training_exercise_id UUID REFERENCES public.training_exercises(id) ON DELETE CASCADE NOT NULL,
   set_number INTEGER NOT NULL,
   reps INTEGER,
@@ -98,7 +99,7 @@ CREATE TABLE public.exercise_sets (
 
 -- Sport trainings (entrenamientos deportivos)
 CREATE TABLE public.sport_trainings (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   sport_type sport_type NOT NULL,
   date TIMESTAMPTZ DEFAULT NOW() NOT NULL,
@@ -120,7 +121,7 @@ CREATE TABLE public.sport_trainings (
 
 -- Trainer-client relationships (relaciones entrenador-cliente)
 CREATE TABLE public.trainer_clients (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   trainer_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   client_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
   is_active BOOLEAN DEFAULT true NOT NULL,

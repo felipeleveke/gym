@@ -4,6 +4,7 @@ import { formatDateRelative, formatTime, cn } from '@/lib/utils';
 import { Activity, Clock, Tag, MapPin, Thermometer, Wind } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MarkdownNotes } from '@/components/ui/markdown-notes';
 
 const sportTypeLabels: Record<string, string> = {
   running: 'Running',
@@ -149,9 +150,9 @@ export function SportTrainingListItem({
 
           {/* Notas */}
           {training.notes && (
-            <p className="text-sm text-muted-foreground mt-2 ml-8 line-clamp-2">
-              {training.notes}
-            </p>
+            <div className="mt-2 ml-8 line-clamp-3">
+              <MarkdownNotes content={training.notes} />
+            </div>
           )}
         </div>
       </div>

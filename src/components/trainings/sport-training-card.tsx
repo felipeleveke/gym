@@ -5,6 +5,7 @@ import { formatDate, formatTime, formatDateRelative, cn } from '@/lib/utils';
 import { Activity, Clock, Tag, MapPin, Thermometer, Wind } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MarkdownNotes } from '@/components/ui/markdown-notes';
 
 const sportTypeLabels: Record<string, string> = {
   running: 'Running',
@@ -155,7 +156,9 @@ export function SportTrainingCard({
         )}
 
         {training.notes && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{training.notes}</p>
+          <div className="line-clamp-3">
+            <MarkdownNotes content={training.notes} />
+          </div>
         )}
       </CardContent>
 

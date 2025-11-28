@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 const cardioTrainingSchema = z.object({
@@ -36,7 +38,7 @@ export function CardioTrainingForm({ onBack }: CardioTrainingFormProps) {
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<CardioTrainingFormData>({
     resolver: zodResolver(cardioTrainingSchema),
     defaultValues: {
@@ -96,18 +98,39 @@ export function CardioTrainingForm({ onBack }: CardioTrainingFormProps) {
     }
   };
 
+  // Hook para manejar cambios sin guardar
+  const {
+    showDialog,
+    confirmLeave,
+    cancelLeave,
+    handleNavigation,
+  } = useUnsavedChanges({
+    hasUnsavedChanges: isDirty,
+    message: '¿Estás seguro de que quieres salir? Tienes cambios sin guardar que se perderán.',
+  });
+
+  // Wrapper para onBack que verifica cambios
+  const handleBack = () => {
+    if (isDirty) {
+      handleNavigation('/trainings');
+    } else {
+      onBack();
+    }
+  };
+
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onBack}
-            disabled={isSubmitting}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleBack}
+              disabled={isSubmitting}
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
           <CardTitle>Nuevo Entrenamiento Cardiovascular</CardTitle>
         </div>
       </CardHeader>
@@ -211,8 +234,16 @@ export function CardioTrainingForm({ onBack }: CardioTrainingFormProps) {
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Diálogo de confirmación para cambios sin guardar */}
+      <UnsavedChangesDialog
+        open={showDialog}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
+      />
+    </>
   );
 }
 

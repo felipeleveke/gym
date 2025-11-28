@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
 const sportTypeOptions = [
@@ -64,7 +66,7 @@ export function SportTrainingFormEdit({ training }: SportTrainingFormEditProps) 
   const {
     register,
     handleSubmit,
-    formState: { errors },
+    formState: { errors, isDirty },
   } = useForm<SportTrainingFormData>({
     resolver: zodResolver(sportTrainingSchema),
     defaultValues: {
@@ -145,12 +147,28 @@ export function SportTrainingFormEdit({ training }: SportTrainingFormEditProps) 
     }
   };
 
+  // Hook para manejar cambios sin guardar
+  const {
+    showDialog,
+    confirmLeave,
+    cancelLeave,
+    handleNavigation,
+  } = useUnsavedChanges({
+    hasUnsavedChanges: isDirty,
+    message: '¿Estás seguro de que quieres salir? Tienes cambios sin guardar que se perderán.',
+  });
+
   const handleBack = () => {
-    router.push('/trainings');
+    if (isDirty) {
+      handleNavigation('/trainings');
+    } else {
+      router.push('/trainings');
+    }
   };
 
   return (
-    <Card>
+    <>
+      <Card>
       <CardHeader>
         <div className="flex items-center gap-4">
           <Button
@@ -392,7 +410,15 @@ export function SportTrainingFormEdit({ training }: SportTrainingFormEditProps) 
             </Button>
           </div>
         </form>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      {/* Diálogo de confirmación para cambios sin guardar */}
+      <UnsavedChangesDialog
+        open={showDialog}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
+      />
+    </>
   );
 }

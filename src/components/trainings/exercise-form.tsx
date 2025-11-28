@@ -8,11 +8,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GripVertical, Trash2, Plus, X } from 'lucide-react';
+import { GripVertical, Trash2, Plus, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SetTimer } from './set-timer';
+import { EditableMarkdown } from '@/components/ui/editable-markdown';
 
-export type SetType = 'warmup' | 'approach' | 'working';
+export type SetType = 'warmup' | 'approach' | 'working' | 'bilbo';
 
 interface ExerciseSet {
   id: string;
@@ -41,6 +42,7 @@ interface ExerciseFormProps {
   notes?: string;
   isLastExercise: boolean;
   defaultRestTime?: number;
+  isGeneratingSummary?: boolean;
   onUpdateSets: (sets: ExerciseSet[]) => void;
   onUpdateNotes: (notes: string) => void;
   onRemove: () => void;
@@ -59,6 +61,7 @@ export function ExerciseForm({
   notes,
   isLastExercise,
   defaultRestTime = 60,
+  isGeneratingSummary = false,
   onUpdateSets,
   onUpdateNotes,
   onRemove,
@@ -129,45 +132,45 @@ export function ExerciseForm({
 
   return (
     <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 flex-1">
-            <div className="flex flex-col gap-1">
+      <CardHeader className="pb-2 sm:pb-3">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+            <div className="flex flex-col gap-0.5 sm:gap-1">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 cursor-move"
+                className="h-5 w-5 sm:h-6 sm:w-6 cursor-move"
                 disabled={!canMoveUp}
                 onClick={onMoveUp}
               >
-                <GripVertical className="h-4 w-4" />
+                <GripVertical className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-6 w-6 cursor-move"
+                className="h-5 w-5 sm:h-6 sm:w-6 cursor-move"
                 disabled={!canMoveDown}
                 onClick={onMoveDown}
               >
-                <GripVertical className="h-4 w-4" />
+                <GripVertical className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
             </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold">{exercise.name}</h3>
-                <Badge variant="secondary" className="text-xs">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                <h3 className="font-semibold text-sm sm:text-base truncate">{exercise.name}</h3>
+                <Badge variant="secondary" className="text-[10px] sm:text-xs shrink-0">
                   #{exerciseIndex + 1}
                 </Badge>
               </div>
               {exercise.muscle_groups && exercise.muscle_groups.length > 0 && (
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">
                   {exercise.muscle_groups.join(', ')}
                 </p>
               )}
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onRemove}>
-            <Trash2 className="h-4 w-4 text-destructive" />
+          <Button variant="ghost" size="icon" onClick={onRemove} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
+            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
           </Button>
         </div>
       </CardHeader>
@@ -175,16 +178,17 @@ export function ExerciseForm({
         {/* Series */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label>Series</Label>
+            <Label className="text-sm sm:text-base">Series</Label>
             <Button
               type="button"
               variant="outline"
               size="sm"
               onClick={addSet}
-              className="h-8"
+              className="h-7 sm:h-8 text-xs sm:text-sm"
             >
               <Plus className="h-3 w-3 mr-1" />
-              Agregar Serie
+              <span className="hidden sm:inline">Agregar Serie</span>
+              <span className="sm:hidden">Agregar</span>
             </Button>
           </div>
 
@@ -197,126 +201,162 @@ export function ExerciseForm({
               {sets.map((set, index) => (
                 <div
                   key={set.id}
-                  className="grid grid-cols-12 gap-2 items-end p-2 border rounded-md"
+                  className="space-y-2 p-2 border rounded-md"
                 >
-                  <div className="col-span-1 flex items-center justify-center">
-                    <span className="text-sm font-medium text-muted-foreground">
-                      {set.set_number}
-                    </span>
+                  {/* Primera fila: Campos principales - Mobile first: apilados, Desktop: grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-12 gap-2 items-end">
+                    {/* Número de serie */}
+                    <div className="col-span-2 sm:col-span-1 md:col-span-1 flex items-center justify-start sm:justify-center">
+                      <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                        #{set.set_number}
+                      </span>
+                    </div>
+                    
+                    {/* Tipo de serie */}
+                    <div className="col-span-2 sm:col-span-1 md:col-span-1">
+                      <Label htmlFor={`set-type-${set.id}`} className="text-xs">
+                        Tipo
+                      </Label>
+                      <Select
+                        value={set.set_type || 'working'}
+                        onValueChange={(value: SetType) => updateSet(set.id, 'set_type', value)}
+                      >
+                        <SelectTrigger id={`set-type-${set.id}`} className="h-8 sm:h-9 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="warmup">Calentamiento</SelectItem>
+                          <SelectItem value="approach">Aproximación</SelectItem>
+                          <SelectItem value="working">Efectiva</SelectItem>
+                          <SelectItem value="bilbo">Bilbo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    {/* Peso */}
+                    <div className="col-span-1 sm:col-span-1 md:col-span-2">
+                      <Label htmlFor={`weight-${set.id}`} className="text-xs">
+                        Peso (kg)
+                      </Label>
+                      <Input
+                        id={`weight-${set.id}`}
+                        type="number"
+                        step="0.5"
+                        min="0"
+                        placeholder="0"
+                        value={set.weight ?? ''}
+                        onChange={(e) =>
+                          updateSet(
+                            set.id,
+                            'weight',
+                            e.target.value ? parseFloat(e.target.value) : null
+                          )
+                        }
+                        className="h-8 sm:h-9 text-sm"
+                      />
+                    </div>
+                    
+                    {/* Reps */}
+                    <div className="col-span-1 sm:col-span-1 md:col-span-2">
+                      <Label htmlFor={`reps-${set.id}`} className="text-xs">
+                        Reps
+                      </Label>
+                      <Input
+                        id={`reps-${set.id}`}
+                        type="number"
+                        min="0"
+                        placeholder="0"
+                        value={set.reps ?? ''}
+                        onChange={(e) =>
+                          updateSet(
+                            set.id,
+                            'reps',
+                            e.target.value ? parseInt(e.target.value) : null
+                          )
+                        }
+                        className="h-8 sm:h-9 text-sm"
+                      />
+                    </div>
+                    
+                    {/* RIR */}
+                    <div className="col-span-1 sm:col-span-1 md:col-span-2">
+                      <Label htmlFor={`rir-${set.id}`} className="text-xs">
+                        RIR
+                      </Label>
+                      <Input
+                        id={`rir-${set.id}`}
+                        type="number"
+                        min="0"
+                        max="10"
+                        placeholder="0"
+                        value={set.rir ?? ''}
+                        onChange={(e) =>
+                          updateSet(
+                            set.id,
+                            'rir',
+                            e.target.value ? parseInt(e.target.value) : null
+                          )
+                        }
+                        className="h-8 sm:h-9 text-sm"
+                      />
+                    </div>
+                    
+                    {/* Timer - Ocupa más espacio en móvil */}
+                    <div className="col-span-2 sm:col-span-2 md:col-span-3">
+                      <SetTimer
+                        setId={set.id}
+                        isLastSet={isLastExercise && index === sets.length - 1}
+                        isCompleted={completedSetIds.has(set.id)}
+                        activeSetId={activeSetId}
+                        defaultRestTime={defaultRestTime}
+                        canStart={
+                          index === 0 
+                            ? true 
+                            : completedSetIds.has(sets[index - 1].id) || restingSetId === sets[index - 1].id
+                        }
+                        onExerciseTimeUpdate={(seconds) => {
+                          updateSet(set.id, 'duration', seconds);
+                        }}
+                        onRestTimeUpdate={(seconds) => {
+                          updateSet(set.id, 'rest_time', seconds);
+                        }}
+                        onStart={() => handleSetStart(set.id)}
+                        onRest={() => handleSetRest(set.id)}
+                        onComplete={() => handleSetComplete(set.id)}
+                      />
+                    </div>
+                    
+                    {/* Botón eliminar */}
+                    <div className="col-span-1 sm:col-span-1 md:col-span-1 flex justify-end sm:justify-center">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => removeSet(set.id)}
+                        className="h-8 w-8 sm:h-9 sm:w-9"
+                      >
+                        <X className="h-3 w-3 sm:h-4 sm:w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="col-span-1">
-                    <Label htmlFor={`set-type-${set.id}`} className="text-xs">
-                      Tipo
-                    </Label>
-                    <Select
-                      value={set.set_type || 'working'}
-                      onValueChange={(value: SetType) => updateSet(set.id, 'set_type', value)}
-                    >
-                      <SelectTrigger id={`set-type-${set.id}`} className="h-9 text-xs">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="warmup">Calentamiento</SelectItem>
-                        <SelectItem value="approach">Aproximación</SelectItem>
-                        <SelectItem value="working">Efectiva</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor={`weight-${set.id}`} className="text-xs">
-                      Peso (kg)
-                    </Label>
-                    <Input
-                      id={`weight-${set.id}`}
-                      type="number"
-                      step="0.5"
-                      min="0"
-                      placeholder="0"
-                      value={set.weight ?? ''}
+                  
+                  {/* Notas de la serie - Más pequeñas y compactas */}
+                  <div className="pt-1">
+                    <Textarea
+                      id={`set-notes-${set.id}`}
+                      placeholder="Notas..."
+                      value={set.notes || ''}
                       onChange={(e) =>
-                        updateSet(
-                          set.id,
-                          'weight',
-                          e.target.value ? parseFloat(e.target.value) : null
-                        )
+                        updateSet(set.id, 'notes', e.target.value || null)
                       }
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor={`reps-${set.id}`} className="text-xs">
-                      Reps
-                    </Label>
-                    <Input
-                      id={`reps-${set.id}`}
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={set.reps ?? ''}
-                      onChange={(e) =>
-                        updateSet(
-                          set.id,
-                          'reps',
-                          e.target.value ? parseInt(e.target.value) : null
-                        )
-                      }
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <Label htmlFor={`rir-${set.id}`} className="text-xs">
-                      RIR (0-10)
-                    </Label>
-                    <Input
-                      id={`rir-${set.id}`}
-                      type="number"
-                      min="0"
-                      max="10"
-                      placeholder="0"
-                      value={set.rir ?? ''}
-                      onChange={(e) =>
-                        updateSet(
-                          set.id,
-                          'rir',
-                          e.target.value ? parseInt(e.target.value) : null
-                        )
-                      }
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="col-span-3">
-                    <SetTimer
-                      setId={set.id}
-                      isLastSet={isLastExercise && index === sets.length - 1}
-                      isCompleted={completedSetIds.has(set.id)}
-                      activeSetId={activeSetId}
-                      defaultRestTime={defaultRestTime}
-                      canStart={
-                        index === 0 
-                          ? true 
-                          : completedSetIds.has(sets[index - 1].id) || restingSetId === sets[index - 1].id
-                      }
-                      onExerciseTimeUpdate={(seconds) => {
-                        updateSet(set.id, 'duration', seconds);
+                      className="min-h-[28px] sm:min-h-[32px] h-auto text-xs sm:text-sm resize-none overflow-y-auto"
+                      rows={1}
+                      onInput={(e) => {
+                        const target = e.target as HTMLTextAreaElement;
+                        target.style.height = 'auto';
+                        target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
                       }}
-                      onRestTimeUpdate={(seconds) => {
-                        updateSet(set.id, 'rest_time', seconds);
-                      }}
-                      onStart={() => handleSetStart(set.id)}
-                      onRest={() => handleSetRest(set.id)}
-                      onComplete={() => handleSetComplete(set.id)}
                     />
-                  </div>
-                  <div className="col-span-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeSet(set.id)}
-                      className="h-9 w-9"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               ))}
@@ -326,13 +366,24 @@ export function ExerciseForm({
 
         {/* Notas del ejercicio */}
         <div className="space-y-2">
-          <Label htmlFor={`exercise-notes-${exercise.id}`}>Notas del ejercicio</Label>
-          <Textarea
-            id={`exercise-notes-${exercise.id}`}
-            placeholder="Notas sobre este ejercicio..."
+          <div className="flex items-center gap-2">
+            <Label htmlFor={`exercise-notes-${exercise.id}`} className="text-sm sm:text-base">
+              Notas del ejercicio
+            </Label>
+            {isGeneratingSummary && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span>Generando resumen...</span>
+              </div>
+            )}
+          </div>
+          <EditableMarkdown
+            content={notes || ''}
+            onChange={onUpdateNotes}
+            placeholder={isGeneratingSummary ? "Generando resumen automático..." : "Notas sobre este ejercicio..."}
+            disabled={isGeneratingSummary}
+            isGenerating={isGeneratingSummary}
             rows={2}
-            value={notes || ''}
-            onChange={(e) => onUpdateNotes(e.target.value)}
           />
         </div>
       </CardContent>

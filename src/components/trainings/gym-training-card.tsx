@@ -7,6 +7,7 @@ import { Dumbbell, Clock, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MarkdownNotes } from '@/components/ui/markdown-notes';
 import { cn } from '@/lib/utils';
 
 interface ExerciseSet {
@@ -155,7 +156,9 @@ export function GymTrainingCard({
                   </div>
                 )}
                 {ex.notes && (
-                  <p className="text-xs text-muted-foreground italic pl-4">{ex.notes}</p>
+                  <div className="pl-4">
+                    <MarkdownNotes content={ex.notes} className="text-xs" />
+                  </div>
                 )}
               </div>
             ))}
@@ -196,7 +199,9 @@ export function GymTrainingCard({
         )}
 
         {training.notes && (
-          <p className="text-sm text-muted-foreground line-clamp-2">{training.notes}</p>
+          <div className="line-clamp-3">
+            <MarkdownNotes content={training.notes} />
+          </div>
         )}
       </CardContent>
 

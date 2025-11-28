@@ -192,3 +192,6 @@ export function FlexibilityTrainingFormEdit({ training }: FlexibilityTrainingFor
   );
 }
 
+
+
+

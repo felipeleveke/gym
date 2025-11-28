@@ -283,46 +283,49 @@ export function SetTimer({
   };
 
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
-      <div className="flex items-center gap-2">
+    <div className={cn('flex flex-col gap-1.5 sm:gap-2', className)}>
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <Button
           type="button"
           onClick={handleButtonClick}
           size="sm"
           variant={getButtonVariant()}
-          className="h-9 min-w-[120px]"
+          className="h-8 sm:h-9 min-w-[100px] sm:min-w-[120px] text-xs sm:text-sm"
           disabled={state === 'completed' || (state === 'resting') || (state === 'idle' && !canStart)}
         >
           {state === 'completed' || state === 'resting' ? (
             <>
-              <CheckCircle2 className="h-4 w-4 mr-1" />
-              {getButtonText()}
+              <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+              <span className="hidden sm:inline">{getButtonText()}</span>
+              <span className="sm:hidden">✓</span>
             </>
           ) : state === 'exercising' ? (
             <>
-              <Pause className="h-4 w-4 mr-1" />
-              {getButtonText()}
+              <Pause className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+              <span className="hidden sm:inline">{getButtonText()}</span>
+              <span className="sm:hidden">⏸</span>
             </>
           ) : (
             <>
-              <Play className="h-4 w-4 mr-1" />
-              {getButtonText()}
+              <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+              <span className="hidden sm:inline">{getButtonText()}</span>
+              <span className="sm:hidden">▶</span>
             </>
           )}
         </Button>
-        <div className="flex-1 min-w-[80px] text-center">
+        <div className="flex-1 min-w-[60px] sm:min-w-[80px] text-center">
           {state === 'exercising' ? (
             <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground">Ejercicio</span>
-              <span className="text-sm font-mono font-semibold text-primary">
+              <span className="text-[10px] sm:text-xs text-muted-foreground">Ejercicio</span>
+              <span className="text-xs sm:text-sm font-mono font-semibold text-primary">
                 {formatTime(exerciseSeconds)}
               </span>
             </div>
           ) : state === 'resting' && restCountdownEnabled && restCountdown > 0 ? (
             <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground">Countdown</span>
+              <span className="text-[10px] sm:text-xs text-muted-foreground">Countdown</span>
               <span className={cn(
-                'text-sm font-mono font-semibold',
+                'text-xs sm:text-sm font-mono font-semibold',
                 restCountdown <= 10 ? 'text-destructive animate-pulse' : 'text-orange-500'
               )}>
                 {formatTime(restCountdown)}
@@ -330,15 +333,15 @@ export function SetTimer({
             </div>
           ) : state === 'resting' ? (
             <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground">Descanso</span>
-              <span className="text-sm font-mono font-semibold text-muted-foreground">
+              <span className="text-[10px] sm:text-xs text-muted-foreground">Descanso</span>
+              <span className="text-xs sm:text-sm font-mono font-semibold text-muted-foreground">
                 {formatTime(restSeconds)}
               </span>
             </div>
           ) : (
             <div className="flex flex-col">
-              <span className="text-xs text-muted-foreground">Esperando</span>
-              <span className="text-sm font-mono font-semibold text-muted-foreground">
+              <span className="text-[10px] sm:text-xs text-muted-foreground">Esperando</span>
+              <span className="text-xs sm:text-sm font-mono font-semibold text-muted-foreground">
                 00:00
               </span>
             </div>
@@ -347,8 +350,8 @@ export function SetTimer({
       </div>
       
       {(state === 'resting' || state === 'idle') && (
-        <div className="flex items-center gap-2">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+          <div className="flex items-center gap-1 sm:gap-2">
             <Switch
               id={`rest-countdown-${setId}`}
               checked={restCountdownEnabled}
@@ -360,9 +363,9 @@ export function SetTimer({
                   setRestCountdown(0);
                 }
               }}
-              className="scale-75"
+              className="scale-75 sm:scale-100"
             />
-            <Label htmlFor={`rest-countdown-${setId}`} className="text-xs cursor-pointer">
+            <Label htmlFor={`rest-countdown-${setId}`} className="text-[10px] sm:text-xs cursor-pointer">
               Countdown
             </Label>
           </div>
@@ -375,12 +378,12 @@ export function SetTimer({
               onChange={(e) => {
                 const value = parseInt(e.target.value) || defaultRestTime;
                 setRestCountdownTarget(value);
-                setHasCustomRestTime(true); // Marcar que el usuario ha configurado un valor personalizado
+                setHasCustomRestTime(true);
                 if (state === 'resting' && restCountdown > 0) {
                   setRestCountdown(value);
                 }
               }}
-              className="h-7 w-16 text-xs"
+              className="h-6 sm:h-7 w-14 sm:w-16 text-xs"
               placeholder={defaultRestTime.toString()}
             />
           )}

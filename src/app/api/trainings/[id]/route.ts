@@ -131,12 +131,22 @@ export async function PUT(
         }
       } else if (startTimeValue && endTimeValue) {
         // Calcular duración automáticamente desde start_time y end_time
-        const start = new Date(startTimeValue).getTime();
-        const end = new Date(endTimeValue).getTime();
-        const diffInMinutes = Math.round((end - start) / (1000 * 60));
-        if (diffInMinutes <= 0) {
+        const start = new Date(startTimeValue);
+        const end = new Date(endTimeValue);
+        
+        // Validar que la hora de término sea posterior a la de inicio
+        if (end <= start) {
           return NextResponse.json({ error: 'La hora de término debe ser posterior a la hora de inicio' }, { status: 400 });
         }
+        
+        const diffInMs = end.getTime() - start.getTime();
+        const diffInMinutes = Math.round(diffInMs / (1000 * 60));
+        
+        // Validar que la diferencia sea al menos 1 minuto
+        if (diffInMinutes <= 0) {
+          return NextResponse.json({ error: 'La hora de término debe ser al menos 1 minuto posterior a la hora de inicio' }, { status: 400 });
+        }
+        
         duration = diffInMinutes;
       } else {
         return NextResponse.json({ error: 'Debes proporcionar la duración o las horas de inicio y término' }, { status: 400 });

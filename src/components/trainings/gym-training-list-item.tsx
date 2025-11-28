@@ -6,6 +6,7 @@ import { Dumbbell, Clock, Tag, ChevronDown, ChevronUp } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { MarkdownNotes } from '@/components/ui/markdown-notes';
 
 interface ExerciseSet {
   id: string;
@@ -125,9 +126,9 @@ export function GymTrainingListItem({
 
           {/* Notas */}
           {training.notes && (
-            <p className="text-sm text-muted-foreground mt-2 ml-8 line-clamp-2">
-              {training.notes}
-            </p>
+            <div className="mt-2 ml-8 line-clamp-3">
+              <MarkdownNotes content={training.notes} />
+            </div>
           )}
 
           {/* Ejercicios expandidos */}

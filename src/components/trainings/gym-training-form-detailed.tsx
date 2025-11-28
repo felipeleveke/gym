@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -11,9 +11,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { ArrowLeft, Loader2, Plus, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ExerciseSelector } from './exercise-selector';
 import { ExerciseForm } from './exercise-form';
+import { EditableMarkdown } from '@/components/ui/editable-markdown';
 
 interface Exercise {
   id: string;
@@ -32,7 +36,7 @@ interface ExerciseSet {
   rest_time?: number | null;
   rir?: number | null;
   notes?: string | null;
-  set_type?: 'warmup' | 'approach' | 'working' | null;
+  set_type?: 'warmup' | 'approach' | 'working' | 'bilbo' | null;
 }
 
 interface TrainingExercise {
@@ -99,6 +103,10 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
   
   // Tiempo predeterminado de descanso para el countdown (en segundos)
   const [defaultRestTime, setDefaultRestTime] = useState<number>(60);
+  
+  // Estados para indicadores de carga de resúmenes
+  const [generatingExerciseSummaries, setGeneratingExerciseSummaries] = useState<Set<number>>(new Set());
+  const [generatingTrainingSummary, setGeneratingTrainingSummary] = useState(false);
 
   // Calcular duración automáticamente cuando hay start_time y end_time
   const calculatedDuration = trainingStartTime && trainingEndTime
@@ -155,6 +163,8 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<GymTrainingFormData>({
     resolver: zodResolver(gymTrainingSchema),
@@ -163,6 +173,105 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
       tags: defaultTags,
     },
   });
+
+  const trainingNotes = watch('notes');
+  const trainingTags = watch('tags');
+
+  // Guardar estado inicial para comparar cambios
+  const initialStateRef = useRef({
+    exercises: initialData?.training_exercises || [],
+    startTime: initialData?.start_time || null,
+    endTime: initialData?.end_time || null,
+    notes: defaultNotes,
+    tags: defaultTags,
+  });
+
+  // Detectar si hay cambios sin guardar
+  const hasUnsavedChanges = useMemo(() => {
+    // Comparar ejercicios
+    const initialExercises = initialStateRef.current.exercises;
+    const currentExercises = exercises;
+    
+    if (initialExercises.length !== currentExercises.length) {
+      return true;
+    }
+
+    // Comparar cada ejercicio y sus series
+    for (let i = 0; i < currentExercises.length; i++) {
+      const current = currentExercises[i];
+      const initial = initialExercises[i];
+      
+      if (!initial) return true;
+      
+      // Comparar ejercicio
+      if (current.exercise.id !== initial.exercise?.id || 
+          current.exercise.id !== initial.exercise_id) {
+        return true;
+      }
+      
+      // Comparar notas del ejercicio
+      if (current.notes !== (initial.notes || '')) {
+        return true;
+      }
+      
+      // Comparar series
+      const initialSets = initial.exercise_sets || [];
+      if (current.sets.length !== initialSets.length) {
+        return true;
+      }
+      
+      for (let j = 0; j < current.sets.length; j++) {
+        const currentSet = current.sets[j];
+        const initialSet = initialSets[j];
+        
+        if (!initialSet) return true;
+        
+        if (currentSet.weight !== initialSet.weight ||
+            currentSet.reps !== initialSet.reps ||
+            currentSet.duration !== initialSet.duration ||
+            currentSet.rest_time !== initialSet.rest_time ||
+            currentSet.rir !== initialSet.rir ||
+            currentSet.set_type !== (initialSet.set_type || 'working') ||
+            currentSet.notes !== (initialSet.notes || null)) {
+          return true;
+        }
+      }
+    }
+
+    // Comparar tiempos
+    if (trainingStartTime !== initialStateRef.current.startTime ||
+        trainingEndTime !== initialStateRef.current.endTime) {
+      return true;
+    }
+
+    // Comparar notas y tags
+    if (trainingNotes !== initialStateRef.current.notes ||
+        trainingTags !== initialStateRef.current.tags) {
+      return true;
+    }
+
+    return false;
+  }, [exercises, trainingStartTime, trainingEndTime, trainingNotes, trainingTags]);
+
+  // Hook para manejar cambios sin guardar
+  const {
+    showDialog,
+    confirmLeave,
+    cancelLeave,
+    handleNavigation,
+  } = useUnsavedChanges({
+    hasUnsavedChanges,
+    message: '¿Estás seguro de que quieres salir? Tienes cambios sin guardar que se perderán.',
+  });
+
+  // Wrapper para onBack que verifica cambios
+  const handleBack = () => {
+    if (hasUnsavedChanges) {
+      handleNavigation('/trainings');
+    } else {
+      onBack();
+    }
+  };
 
   const handleAddExercise = (exercise: Exercise) => {
     const newExercise: TrainingExercise = {
@@ -205,6 +314,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
   const handleTrainingStartTimeChange = (value: string) => {
     if (value) {
       // Convertir datetime-local a ISO string
+      // datetime-local viene en formato YYYY-MM-DDTHH:mm (hora local sin zona horaria)
+      // new Date() interpreta esto como hora local, y toISOString() la convierte a UTC
+      // Esto está bien porque ambas fechas se convertirán de la misma manera
       const date = new Date(value);
       setTrainingStartTime(date.toISOString());
     } else {
@@ -253,16 +365,167 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
     }
   };
 
-  const handleUpdateExerciseSets = (index: number, sets: ExerciseSet[]) => {
+  const handleUpdateExerciseSets = async (index: number, sets: ExerciseSet[]) => {
     const newExercises = [...exercises];
     newExercises[index].sets = sets;
     setExercises(newExercises);
+    // Los resúmenes se generarán solo al presionar Guardar/Actualizar
   };
 
   const handleUpdateExerciseNotes = (index: number, notes: string) => {
     const newExercises = [...exercises];
     newExercises[index].notes = notes;
     setExercises(newExercises);
+  };
+
+  // Función para generar resumen del entrenamiento cuando se actualiza
+  const generateTrainingSummary = async () => {
+    const exerciseNotes = exercises
+      .filter(ex => ex.notes && ex.notes.trim().length > 0)
+      .map(ex => ({
+        exerciseName: ex.exercise.name,
+        notes: ex.notes
+      }));
+
+    if (exerciseNotes.length === 0) {
+      return;
+    }
+
+    setGeneratingTrainingSummary(true);
+    try {
+      const response = await fetch('/api/ai/summarize-training-notes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exerciseNotes })
+      });
+
+      if (response.ok) {
+        const { summary } = await response.json();
+        if (summary && summary.trim().length > 0) {
+          // Actualizar las notas generales del entrenamiento usando setValue de react-hook-form
+          setValue('notes', summary);
+        }
+      } else {
+        // Manejar errores de la API
+        const errorData = await response.json().catch(() => ({ error: 'Error desconocido' }));
+        console.error('Error generando resumen del entrenamiento:', errorData.error);
+        if (errorData.error?.includes('ANTHROPIC_API_KEY')) {
+          toast({
+            title: 'Configuración requerida',
+            description: 'La API key de Anthropic no está configurada. Los resúmenes automáticos no están disponibles.',
+            variant: 'destructive',
+          });
+        }
+      }
+    } catch (error: any) {
+      console.error('Error generando resumen de notas del entrenamiento:', error);
+      // Solo mostrar toast si no es un error de red (Failed to fetch)
+      if (error?.message && !error.message.includes('Failed to fetch')) {
+        toast({
+          title: 'Error',
+          description: 'No se pudo generar el resumen automático del entrenamiento.',
+          variant: 'destructive',
+        });
+      }
+    } finally {
+      setGeneratingTrainingSummary(false);
+    }
+  };
+
+  // Función para generar todos los resúmenes antes de guardar
+  const generateAllSummaries = async (): Promise<{ updatedExercises: TrainingExercise[], trainingSummary: string | null }> => {
+    // Crear una copia de los ejercicios para actualizar
+    let updatedExercises = [...exercises];
+    let trainingSummary: string | null = null;
+
+    // Generar resúmenes para cada ejercicio que tenga notas en las series
+    const summaryPromises = updatedExercises.map(async (exercise, index) => {
+      const setNotes = exercise.sets
+        .map(set => ({
+          setNumber: set.set_number,
+          notes: set.notes,
+          setType: set.set_type || 'working'
+        }))
+        .filter(set => set.notes && set.notes.trim().length > 0);
+
+      if (setNotes.length === 0) {
+        return null;
+      }
+
+      setGeneratingExerciseSummaries(prev => new Set(prev).add(index));
+      try {
+        const response = await fetch('/api/ai/summarize-exercise-notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            exerciseName: exercise.exercise.name,
+            setNotes
+          })
+        });
+
+        if (response.ok) {
+          const { summary } = await response.json();
+          if (summary && summary.trim().length > 0) {
+            // Actualizar el ejercicio en la copia local
+            updatedExercises[index] = {
+              ...updatedExercises[index],
+              notes: summary
+            };
+            return summary;
+          }
+        }
+      } catch (error) {
+        console.error(`Error generando resumen para ejercicio ${index}:`, error);
+        // No mostrar error al usuario, solo continuar
+      } finally {
+        setGeneratingExerciseSummaries(prev => {
+          const updated = new Set(prev);
+          updated.delete(index);
+          return updated;
+        });
+      }
+      return null;
+    });
+
+    // Esperar a que todos los resúmenes de ejercicios se generen
+    await Promise.all(summaryPromises);
+
+    // Actualizar el estado con los ejercicios actualizados
+    setExercises(updatedExercises);
+
+    // Luego generar el resumen del entrenamiento
+    const exerciseNotes = updatedExercises
+      .filter(ex => ex.notes && ex.notes.trim().length > 0)
+      .map(ex => ({
+        exerciseName: ex.exercise.name,
+        notes: ex.notes
+      }));
+
+    if (exerciseNotes.length > 0) {
+      setGeneratingTrainingSummary(true);
+      try {
+        const response = await fetch('/api/ai/summarize-training-notes', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ exerciseNotes })
+        });
+
+        if (response.ok) {
+          const { summary } = await response.json();
+          if (summary && summary.trim().length > 0) {
+            trainingSummary = summary;
+            setValue('notes', summary);
+          }
+        }
+      } catch (error) {
+        console.error('Error generando resumen del entrenamiento:', error);
+        // No mostrar error al usuario, solo continuar
+      } finally {
+        setGeneratingTrainingSummary(false);
+      }
+    }
+
+    return { updatedExercises, trainingSummary };
   };
 
   const onSubmit = async (data: GymTrainingFormData) => {
@@ -288,6 +551,12 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
 
     setIsSubmitting(true);
     try {
+      // Generar todos los resúmenes antes de guardar
+      const { updatedExercises } = await generateAllSummaries();
+      
+      // Usar los ejercicios actualizados con los resúmenes generados
+      const finalExercises = updatedExercises;
+
       const tagsArray = data.tags
         ? data.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
         : [];
@@ -308,12 +577,35 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
       // Calcular duración automáticamente si hay start_time y end_time
       let calculatedDuration: number | null = null;
       if (trainingStartTime && trainingEndTime) {
-        const start = new Date(trainingStartTime).getTime();
-        const end = new Date(trainingEndTime).getTime();
-        const diffInMinutes = Math.round((end - start) / (1000 * 60));
-        if (diffInMinutes > 0) {
-          calculatedDuration = diffInMinutes;
+        const start = new Date(trainingStartTime);
+        const end = new Date(trainingEndTime);
+        
+        // Validar que la hora de término sea posterior a la de inicio
+        if (end <= start) {
+          toast({
+            title: 'Error',
+            description: 'La hora de término debe ser posterior a la hora de inicio',
+            variant: 'destructive',
+          });
+          setIsSubmitting(false);
+          return;
         }
+        
+        const diffInMs = end.getTime() - start.getTime();
+        const diffInMinutes = Math.round(diffInMs / (1000 * 60));
+        
+        // Validar que la diferencia sea al menos 1 minuto
+        if (diffInMinutes <= 0) {
+          toast({
+            title: 'Error',
+            description: 'La hora de término debe ser al menos 1 minuto posterior a la hora de inicio',
+            variant: 'destructive',
+          });
+          setIsSubmitting(false);
+          return;
+        }
+        
+        calculatedDuration = diffInMinutes;
       }
 
       const isEditMode = !!trainingId;
@@ -332,9 +624,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
           duration: calculatedDuration,
           start_time: trainingStartTime,
           end_time: trainingEndTime,
-          notes: data.notes || null,
+          notes: watch('notes') || null,
           tags: tagsArray.length > 0 ? tagsArray : null,
-          exercises: exercisesWithValidSets.map((ex, index) => ({
+          exercises: finalExercises.filter((ex) => ex.sets.length > 0).map((ex, index) => ({
             exercise_id: ex.exercise.id,
             order_index: index + 1,
             notes: ex.notes || null,
@@ -363,7 +655,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
       
       toast({
         title: isEditMode ? 'Entrenamiento actualizado' : 'Entrenamiento creado',
-        description: `Tu entrenamiento con ${exercisesWithValidSets.length} ejercicio(s) ha sido ${isEditMode ? 'actualizado' : 'registrado'} exitosamente.`,
+        description: `Tu entrenamiento con ${finalExercises.filter((ex) => ex.sets.length > 0).length} ejercicio(s) ha sido ${isEditMode ? 'actualizado' : 'registrado'} exitosamente.`,
       });
 
       router.push('/trainings');
@@ -396,7 +688,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
             <Button
               variant="ghost"
               size="icon"
-              onClick={onBack}
+              onClick={handleBack}
               disabled={isSubmitting}
             >
               <ArrowLeft className="h-4 w-4" />
@@ -407,18 +699,18 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             {/* Control de tiempo del entrenamiento */}
-            <div className="space-y-4 p-4 border rounded-lg bg-muted/50">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3 sm:space-y-4 p-3 sm:p-4 border rounded-lg bg-muted/50">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="training-start-time">Hora de Inicio del Entrenamiento</Label>
-                  <div className="flex items-center gap-2">
+                  <Label htmlFor="training-start-time" className="text-sm">Hora de Inicio</Label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <Input
                       id="training-start-time"
                       type="datetime-local"
                       value={toDateTimeLocal(trainingStartTime)}
                       onChange={(e) => handleTrainingStartTimeChange(e.target.value)}
                       disabled={isSubmitting}
-                      className="flex-1"
+                      className="flex-1 text-sm"
                       required
                     />
                     <Button
@@ -427,22 +719,23 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
                       variant="outline"
                       size="sm"
                       disabled={isSubmitting}
+                      className="w-full sm:w-auto"
                     >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Ahora
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Ahora</span>
                     </Button>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="training-end-time">Hora de Término del Entrenamiento</Label>
-                  <div className="flex items-center gap-2">
+                  <Label htmlFor="training-end-time" className="text-sm">Hora de Término</Label>
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                     <Input
                       id="training-end-time"
                       type="datetime-local"
                       value={toDateTimeLocal(trainingEndTime)}
                       onChange={(e) => handleTrainingEndTimeChange(e.target.value)}
                       disabled={isSubmitting}
-                      className="flex-1"
+                      className="flex-1 text-sm"
                     />
                     <Button
                       type="button"
@@ -450,9 +743,10 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
                       variant="outline"
                       size="sm"
                       disabled={isSubmitting}
+                      className="w-full sm:w-auto"
                     >
-                      <Clock className="h-4 w-4 mr-2" />
-                      Ahora
+                      <Clock className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Ahora</span>
                     </Button>
                   </div>
                 </div>
@@ -469,16 +763,16 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
               )}
               {(totalExerciseTime > 0 || totalRestTime > 0) && (
                 <div className="pt-2 border-t space-y-2">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     <div>
                       <Label className="text-xs text-muted-foreground">Tiempo Ejercicio</Label>
-                      <div className="text-sm font-semibold text-primary">
+                      <div className="text-xs sm:text-sm font-semibold text-primary">
                         {formatTime(totalExerciseTime)}
                       </div>
                     </div>
                     <div>
                       <Label className="text-xs text-muted-foreground">Tiempo Descanso</Label>
-                      <div className="text-sm font-semibold text-muted-foreground">
+                      <div className="text-xs sm:text-sm font-semibold text-muted-foreground">
                         {formatTime(totalRestTime)}
                       </div>
                     </div>
@@ -486,7 +780,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
                   <div className="pt-2 border-t">
                     <div className="flex items-center justify-between">
                       <Label className="text-xs text-muted-foreground">% Tiempo Ejercicio</Label>
-                      <span className="text-lg font-semibold text-primary">
+                      <span className="text-base sm:text-lg font-semibold text-primary">
                         {exercisePercentage}%
                       </span>
                     </div>
@@ -494,9 +788,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
                 </div>
               )}
               <div className="pt-2 border-t">
-                <div className="flex items-center justify-between gap-2">
-                  <Label htmlFor="default-rest-time" className="text-sm">
-                    Tiempo Predeterminado de Descanso (segundos)
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                  <Label htmlFor="default-rest-time" className="text-xs sm:text-sm">
+                    Tiempo Predeterminado de Descanso (seg)
                   </Label>
                   <Input
                     id="default-rest-time"
@@ -505,12 +799,12 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
                     max="600"
                     value={defaultRestTime}
                     onChange={(e) => setDefaultRestTime(parseInt(e.target.value) || 60)}
-                    className="w-24 h-9"
+                    className="w-full sm:w-24 h-8 sm:h-9 text-sm"
                     disabled={isSubmitting}
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Este tiempo se usará como predeterminado para el countdown de descanso. Puede ser sobrescrito en cada serie.
+                  Predeterminado para el countdown. Puede sobrescribirse en cada serie.
                 </p>
               </div>
             </div>
@@ -556,6 +850,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
                         notes={trainingExercise.notes}
                         isLastExercise={index === exercises.length - 1}
                         defaultRestTime={defaultRestTime}
+                        isGeneratingSummary={generatingExerciseSummaries.has(index)}
                         onUpdateSets={(sets) => handleUpdateExerciseSets(index, sets)}
                         onUpdateNotes={(notes) => handleUpdateExerciseNotes(index, notes)}
                         onRemove={() => handleRemoveExercise(index)}
@@ -597,19 +892,28 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="notes">Notas Generales</Label>
-              <Textarea
-                id="notes"
-                placeholder="Anota cualquier observación sobre tu entrenamiento..."
+              <div className="flex items-center gap-2">
+                <Label htmlFor="notes">Notas Generales</Label>
+                {generatingTrainingSummary && (
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    <span>Generando resumen...</span>
+                  </div>
+                )}
+              </div>
+              <EditableMarkdown
+                content={watch('notes') || ''}
+                onChange={(value) => setValue('notes', value)}
+                placeholder={generatingTrainingSummary ? "Generando resumen automático..." : "Anota cualquier observación sobre tu entrenamiento..."}
+                disabled={isSubmitting || generatingTrainingSummary}
+                isGenerating={generatingTrainingSummary}
                 rows={3}
-                {...register('notes')}
-                disabled={isSubmitting}
               />
             </div>
 
             {/* Botones */}
             <div className="flex gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={handleBack} disabled={isSubmitting}>
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting || exercises.length === 0}>
@@ -620,6 +924,13 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
           </form>
         </CardContent>
       </Card>
+
+      {/* Diálogo de confirmación para cambios sin guardar */}
+      <UnsavedChangesDialog
+        open={showDialog}
+        onConfirm={confirmLeave}
+        onCancel={cancelLeave}
+      />
     </>
   );
 }
