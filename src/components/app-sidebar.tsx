@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useEffect, useState } from "react"
 import {
   LayoutDashboard,
   Dumbbell,
@@ -13,6 +14,7 @@ import {
   User,
   Settings,
 } from "lucide-react"
+import Image from "next/image"
 
 import {
   Sidebar,
@@ -27,6 +29,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
 import { useAuth } from "@/hooks/use-auth"
+import { createClient } from "@/lib/supabase/client"
 
 const menuItems = [
   {
@@ -80,6 +83,53 @@ const settingsItems = [
 export function AppSidebar() {
   const pathname = usePathname()
   const { logout } = useAuth()
+  const [userProfile, setUserProfile] = useState<{
+    full_name: string | null
+    email: string
+    avatar_url: string | null
+  } | null>(null)
+
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, email, avatar_url')
+          .eq('id', user.id)
+          .single()
+        
+        if (profile) {
+          setUserProfile({
+            full_name: profile.full_name,
+            email: profile.email || user.email || '',
+            avatar_url: profile.avatar_url,
+          })
+        } else {
+          // Fallback si no hay perfil
+          setUserProfile({
+            full_name: null,
+            email: user.email || '',
+            avatar_url: null,
+          })
+        }
+      }
+    }
+
+    loadUserProfile()
+
+    // Escuchar eventos de actualización del perfil
+    const handleProfileUpdate = () => {
+      loadUserProfile()
+    }
+
+    window.addEventListener('profile-updated', handleProfileUpdate)
+    return () => {
+      window.removeEventListener('profile-updated', handleProfileUpdate)
+    }
+  }, [pathname]) // Recargar cuando cambia la ruta también
 
   const handleLogout = async () => {
     await logout()
@@ -164,6 +214,35 @@ export function AppSidebar() {
 
       <SidebarFooter>
         <SidebarMenu>
+          {/* Información del Usuario */}
+          {userProfile && (
+            <SidebarMenuItem>
+              <div className="flex items-center gap-2 px-2 py-2 mb-2">
+                {userProfile.avatar_url ? (
+                  <div className="relative w-8 h-8 rounded-full overflow-hidden border border-border shrink-0">
+                    <Image
+                      src={userProfile.avatar_url}
+                      alt="Avatar"
+                      fill
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center border border-border shrink-0">
+                    <User className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex flex-col min-w-0 flex-1 group-data-[collapsible=icon]:hidden">
+                  <span className="text-sm font-medium truncate">
+                    {userProfile.full_name || 'Usuario'}
+                  </span>
+                  <span className="text-xs text-muted-foreground truncate">
+                    {userProfile.email}
+                  </span>
+                </div>
+              </div>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton onClick={handleLogout} className="text-destructive hover:text-destructive hover:bg-destructive/10">
               <LogOut />
