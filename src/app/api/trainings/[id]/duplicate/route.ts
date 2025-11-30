@@ -15,6 +15,33 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Verificar y crear perfil si no existe (fallback)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      // Intentar crear el perfil si no existe
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || '',
+          avatar_url: user.user_metadata?.avatar_url || null,
+        });
+
+      if (insertError) {
+        console.error('Error creating profile:', insertError);
+        return NextResponse.json(
+          { error: 'Error al verificar el perfil de usuario. Por favor, contacta al soporte.' },
+          { status: 500 }
+        );
+      }
+    }
+
     // Intentar obtener como gym training primero
     const { data: gymTraining, error: gymError } = await supabase
       .from('gym_trainings')
@@ -151,6 +178,8 @@ export async function POST(
     );
   }
 }
+
+
 
 
 

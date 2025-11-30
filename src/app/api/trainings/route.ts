@@ -117,6 +117,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
+    // Verificar y crear perfil si no existe (fallback)
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      // Intentar crear el perfil si no existe
+      const { error: insertError } = await supabase
+        .from('profiles')
+        .insert({
+          id: user.id,
+          email: user.email || '',
+          full_name: user.user_metadata?.full_name || '',
+          avatar_url: user.user_metadata?.avatar_url || null,
+        });
+
+      if (insertError) {
+        console.error('Error creating profile:', insertError);
+        // Si falla la creación del perfil, devolver error específico
+        return NextResponse.json(
+          { error: 'Error al verificar el perfil de usuario. Por favor, contacta al soporte.' },
+          { status: 500 }
+        );
+      }
+    }
+
     const body = await request.json();
     const { type, ...trainingData } = body;
 
