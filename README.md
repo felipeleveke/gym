@@ -46,6 +46,13 @@ Sistema completo de seguimiento de entrenamientos para gimnasio y deportes al ai
   - Instalable en dispositivos móviles
   - Sincronización automática cuando hay conexión
 
+- **App Móvil Nativa**
+  - Apps nativas para Android e iOS
+  - Acceso a cámara para fotos de progreso
+  - GPS para rastrear entrenamientos al aire libre
+  - Notificaciones push (en desarrollo)
+  - Distribución en Google Play Store y App Store
+
 ## 🛠️ Stack Tecnológico
 
 ### Frontend
@@ -69,6 +76,90 @@ Sistema completo de seguimiento de entrenamientos para gimnasio y deportes al ai
 ### Deployment
 - **Plataforma**: Vercel
 - **Edge Middleware**: Para autenticación y optimización
+
+### Mobile (Apps Nativas)
+- **Framework**: Capacitor (Ionic)
+- **Plataformas**: Android e iOS
+- **Plugins Nativos**: Cámara, Geolocalización, Notificaciones Push
+- **Distribución**: Google Play Store y App Store
+
+## 📱 Desarrollo Móvil
+
+La aplicación está configurada para funcionar como app móvil nativa usando Capacitor, permitiendo acceso a funcionalidades nativas del dispositivo.
+
+### Funcionalidades Nativas Implementadas
+
+- **Cámara**: Tomar fotos de progreso físico desde el perfil de usuario
+- **Geolocalización**: Obtener ubicación GPS para entrenamientos al aire libre
+- **Notificaciones Push**: Sistema de notificaciones para recordatorios (configuración pendiente)
+
+### Requisitos para Desarrollo Móvil
+
+#### Android
+- Android Studio instalado
+- Android SDK configurado
+- Dispositivo Android o emulador
+
+#### iOS (solo en macOS)
+- Xcode instalado
+- CocoaPods instalado (`sudo gem install cocoapods`)
+- Dispositivo iOS o simulador
+
+### Comandos de Desarrollo Móvil
+
+```bash
+# Sincronizar cambios con plataformas nativas
+npm run capacitor:sync
+
+# Abrir proyecto Android en Android Studio
+npm run android:dev
+
+# Abrir proyecto iOS en Xcode
+npm run ios:dev
+
+# Build para Android
+npm run android:build
+
+# Build para iOS
+npm run ios:build
+```
+
+### Configuración para Desarrollo
+
+1. **Desarrollo Local**: 
+   - Descomentar `server.url` en `capacitor.config.ts` para usar el servidor local
+   - Ejecutar `npm run dev` en una terminal
+   - Ejecutar `npm run android:dev` o `npm run ios:dev` en otra terminal
+
+2. **Producción**:
+   - Las API routes estarán en Vercel
+   - La app móvil llamará directamente a las APIs de producción
+   - Configurar `NEXT_PUBLIC_API_URL` en las variables de entorno
+
+### Estructura de Archivos Móviles
+
+```
+gym/
+├── android/              # Proyecto Android nativo
+│   └── app/
+│       └── src/main/
+│           ├── AndroidManifest.xml
+│           └── assets/
+├── ios/                  # Proyecto iOS nativo
+│   └── App/
+│       └── App/
+│           └── Info.plist
+├── dist/                 # Archivos estáticos para Capacitor
+│   └── index.html
+└── capacitor.config.ts   # Configuración de Capacitor
+```
+
+### Notas Importantes
+
+- Las API routes de Next.js siguen funcionando normalmente desde Vercel
+- En desarrollo, la app móvil puede conectarse al servidor local
+- En producción, las APIs se llaman directamente a la URL de Vercel
+- Los hooks nativos (`use-camera`, `use-geolocation`, `use-push-notifications`) solo funcionan en plataformas nativas
 
 ## 📁 Estructura del Proyecto
 
@@ -241,15 +332,31 @@ La aplicación estará disponible en `http://localhost:3000`
 
 ## 🔧 Scripts Disponibles
 
+### Desarrollo Web
 ```bash
 npm run dev          # Desarrollo local
 npm run build        # Build de producción
 npm run start        # Servidor de producción
 npm run lint         # Linter
 npm run type-check   # Verificación de tipos
+```
+
+### Base de Datos
+```bash
 npm run db:generate  # Generar tipos de Supabase
 npm run db:reset     # Resetear base de datos local
 npm run db:migrate   # Aplicar migraciones
+```
+
+### Mobile (Capacitor)
+```bash
+npm run capacitor:sync    # Sincronizar cambios con plataformas nativas
+npm run capacitor:copy   # Copiar assets web a plataformas nativas
+npm run capacitor:update # Actualizar dependencias nativas
+npm run android:dev     # Build y abrir Android Studio
+npm run android:build   # Build para Android
+npm run ios:dev         # Build y abrir Xcode
+npm run ios:build       # Build para iOS
 ```
 
 ## 🔐 Seguridad
@@ -285,7 +392,10 @@ La aplicación está diseñada con enfoque mobile-first:
 
 ## 🚧 Próximas Funcionalidades
 
-- [ ] Notificaciones push para recordatorios
+- [x] App móvil nativa (Android e iOS) con Capacitor
+- [x] Integración de cámara para fotos de progreso
+- [x] Integración de GPS para entrenamientos al aire libre
+- [ ] Notificaciones push para recordatorios (infraestructura lista)
 - [ ] Compartir entrenamientos en redes sociales
 - [ ] Integración con wearables (Apple Watch, Garmin)
 - [ ] Modo oscuro mejorado

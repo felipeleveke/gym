@@ -12,8 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { useGeolocation } from '@/hooks/use-geolocation';
+import { isNativePlatform } from '@/lib/capacitor';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin } from 'lucide-react';
 
 const sportTypeOptions = [
   { value: 'running', label: 'Running' },
@@ -53,11 +55,16 @@ interface SportTrainingFormProps {
 export function SportTrainingForm({ onBack }: SportTrainingFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { getCurrentPosition, isLoading: geolocationLoading } = useGeolocation();
+  const isNative = isNativePlatform();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isDirty },
   } = useForm<SportTrainingFormData>({
     resolver: zodResolver(sportTrainingSchema),
@@ -67,6 +74,32 @@ export function SportTrainingForm({ onBack }: SportTrainingFormProps) {
       sport_type: 'running',
     },
   });
+
+  const notesValue = watch('notes');
+
+  const handleGetLocation = async () => {
+    const position = await getCurrentPosition();
+    if (position) {
+      const { latitude, longitude } = position.coords;
+      setCurrentLocation({ lat: latitude, lng: longitude });
+      
+      // Agregar ubicación a las notas
+      const locationText = `\n📍 Ubicación: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+      const currentNotes = notesValue || '';
+      setValue('notes', currentNotes + locationText, { shouldDirty: true });
+      
+      toast({
+        title: 'Ubicación obtenida',
+        description: 'La ubicación se ha agregado a las notas',
+      });
+    } else {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'No se pudo obtener la ubicación',
+      });
+    }
+  };
 
   const onSubmit = async (data: SportTrainingFormData) => {
     setIsSubmitting(true);
@@ -369,7 +402,25 @@ export function SportTrainingForm({ onBack }: SportTrainingFormProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="notes">Notas</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="notes">Notas</Label>
+              {isNative && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleGetLocation}
+                  disabled={isSubmitting || geolocationLoading}
+                >
+                  {geolocationLoading ? (
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <MapPin className="w-4 h-4 mr-2" />
+                  )}
+                  Obtener ubicación
+                </Button>
+              )}
+            </div>
             <Textarea
               id="notes"
               placeholder="Anota cualquier observación sobre tu entrenamiento..."
@@ -379,6 +430,11 @@ export function SportTrainingForm({ onBack }: SportTrainingFormProps) {
             />
             {errors.notes && (
               <p className="text-sm text-destructive">{errors.notes.message}</p>
+            )}
+            {currentLocation && (
+              <p className="text-xs text-muted-foreground">
+                Ubicación guardada: {currentLocation.lat.toFixed(6)}, {currentLocation.lng.toFixed(6)}
+              </p>
             )}
           </div>
 

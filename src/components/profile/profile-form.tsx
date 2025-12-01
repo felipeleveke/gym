@@ -4,13 +4,15 @@ import { useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCamera } from '@/hooks/use-camera';
+import { isNativePlatform } from '@/lib/capacitor';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { User, Upload, Loader2 } from 'lucide-react';
+import { User, Upload, Loader2, Camera, Image as ImageIcon } from 'lucide-react';
 import Image from 'next/image';
 
 interface Profile {
@@ -31,6 +33,8 @@ export function ProfileForm({ initialProfile, userEmail }: ProfileFormProps) {
   const { toast } = useToast();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { takePhoto, pickFromGallery, isLoading: cameraLoading } = useCamera();
+  const isNative = isNativePlatform();
 
   const [loading, setLoading] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -44,6 +48,87 @@ export function ProfileForm({ initialProfile, userEmail }: ProfileFormProps) {
 
   const handleAvatarClick = () => {
     fileInputRef.current?.click();
+  };
+
+  const handleTakePhoto = async () => {
+    const photo = await takePhoto();
+    if (photo?.webPath) {
+      await uploadPhotoFromUri(photo.webPath);
+    }
+  };
+
+  const handlePickFromGallery = async () => {
+    const photo = await pickFromGallery();
+    if (photo?.webPath) {
+      await uploadPhotoFromUri(photo.webPath);
+    }
+  };
+
+  const uploadPhotoFromUri = async (uri: string) => {
+    setUploadingAvatar(true);
+    try {
+      // Convertir URI a blob
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      
+      // Crear File desde blob
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+      const file = new File([blob], fileName, { type: blob.type });
+      const filePath = `${profile.id}/${fileName}`;
+
+      // Eliminar avatar anterior si existe
+      if (profile.avatar_url) {
+        const oldPath = profile.avatar_url.split('/').slice(-2).join('/');
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+
+      // Subir nuevo avatar
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Obtener URL pública
+      const { data } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      // Actualizar perfil con nueva URL
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: data.publicUrl })
+        .eq('id', profile.id);
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      setProfile((prev) => ({ ...prev, avatar_url: data.publicUrl }));
+      setAvatarPreview(data.publicUrl);
+      toast({
+        title: 'Avatar actualizado',
+        description: 'Tu foto de perfil ha sido actualizada correctamente',
+      });
+
+      // Disparar evento para actualizar el sidebar
+      window.dispatchEvent(new CustomEvent('profile-updated'));
+    } catch (error: any) {
+      console.error('Error uploading avatar from camera:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'Error al subir el avatar',
+      });
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -249,15 +334,38 @@ export function ProfileForm({ initialProfile, userEmail }: ProfileFormProps) {
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleAvatarClick}
-                disabled={uploadingAvatar}
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                {avatarPreview ? 'Cambiar foto' : 'Subir foto'}
-              </Button>
+              {isNative ? (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleTakePhoto}
+                    disabled={uploadingAvatar || cameraLoading}
+                  >
+                    <Camera className="w-4 h-4 mr-2" />
+                    Tomar foto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePickFromGallery}
+                    disabled={uploadingAvatar || cameraLoading}
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Galería
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAvatarClick}
+                  disabled={uploadingAvatar}
+                >
+                  <Upload className="w-4 h-4 mr-2" />
+                  {avatarPreview ? 'Cambiar foto' : 'Subir foto'}
+                </Button>
+              )}
               <p className="text-sm text-muted-foreground">
                 JPG, PNG o GIF. Máximo 5MB
               </p>

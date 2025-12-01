@@ -5,7 +5,6 @@ import { type NextRequest } from 'next/server';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
-  const type = searchParams.get('type'); // 'signup', 'recovery', 'magiclink', etc.
   const next = searchParams.get('next') ?? '/dashboard';
 
   if (code) {
@@ -31,8 +30,8 @@ export async function GET(request: NextRequest) {
             .insert({
               id: user.id,
               email: user.email || '',
-              full_name: user.user_metadata?.full_name || '',
-              avatar_url: user.user_metadata?.avatar_url || null,
+              full_name: user.user_metadata?.full_name || user.user_metadata?.name || '',
+              avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
             });
 
           if (insertError) {
@@ -42,17 +41,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Determinar el destino según el tipo de flujo
-      let redirectPath = next;
-      
-      if (type === 'recovery') {
-        // Si es recuperación de contraseña, redirigir a update-password
-        redirectPath = '/auth/update-password';
-      } else {
-        // Para signup, magic link, etc., ir al dashboard
-        redirectPath = '/dashboard';
-      }
-
+      // Redirigir al dashboard después del login exitoso
+      const redirectPath = next;
       const forwardedHost = request.headers.get('x-forwarded-host');
       const isLocalEnv = process.env.NODE_ENV === 'development';
       
