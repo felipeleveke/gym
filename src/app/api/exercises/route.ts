@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       description: description?.trim() || null,
       equipment: equipment?.trim() || null,
       instructions: instructions?.trim() || null,
+      created_by: user.id, // Asignar el ejercicio al usuario que lo crea
     };
 
     // Si hay muscle_groups_json, usarlo (nueva estructura)
@@ -118,6 +119,8 @@ export async function POST(request: NextRequest) {
       // Remover muscle_groups_json del insertData y reintentar
       const fallbackData = { ...insertData };
       delete fallbackData.muscle_groups_json;
+      // Asegurar que created_by esté presente
+      fallbackData.created_by = user.id;
       
       const fallbackResult = await supabase
         .from('exercises')
