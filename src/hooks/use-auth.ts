@@ -45,6 +45,11 @@ export function useAuth() {
         provider: 'google',
         options: {
           redirectTo: getRedirectUrl(),
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          skipHttpRedirect: false,
         },
       });
 

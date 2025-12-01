@@ -5,13 +5,35 @@ import { type NextRequest } from 'next/server';
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get('code');
+  const error = searchParams.get('error');
+  const errorCode = searchParams.get('error_code');
+  const errorDescription = searchParams.get('error_description');
   const next = searchParams.get('next') ?? '/dashboard';
+
+  // Manejar errores de OAuth (incluyendo cancelación)
+  if (error || errorCode) {
+    // Si el usuario canceló el login
+    if (errorCode === 'bad_oauth_state' || error === 'access_denied') {
+      const redirectUrl = new URL('/auth/login', origin);
+      redirectUrl.searchParams.set('error', 'cancelled');
+      redirectUrl.searchParams.set('message', 'Inicio de sesión cancelado');
+      return NextResponse.redirect(redirectUrl);
+    }
+
+    // Otros errores de OAuth
+    const redirectUrl = new URL('/auth/login', origin);
+    redirectUrl.searchParams.set('error', error || 'oauth_error');
+    if (errorDescription) {
+      redirectUrl.searchParams.set('message', decodeURIComponent(errorDescription));
+    }
+    return NextResponse.redirect(redirectUrl);
+  }
 
   if (code) {
     const supabase = await createClient();
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
     
-    if (!error) {
+    if (!exchangeError) {
       // Verificar y crear perfil si no existe
       const { data: { user } } = await supabase.auth.getUser();
       
@@ -53,10 +75,18 @@ export async function GET(request: NextRequest) {
       } else {
         return NextResponse.redirect(`${origin}${redirectPath}`);
       }
+    } else {
+      // Error al intercambiar el código por sesión
+      const redirectUrl = new URL('/auth/login', origin);
+      redirectUrl.searchParams.set('error', 'exchange_error');
+      redirectUrl.searchParams.set('message', 'Error al procesar la autenticación');
+      return NextResponse.redirect(redirectUrl);
     }
   }
 
-  // Si hay error o no hay código, redirigir a login con mensaje de error
-  return NextResponse.redirect(`${origin}/auth/login?error=invalid_code`);
+  // Si no hay código ni error, redirigir a login
+  const redirectUrl = new URL('/auth/login', origin);
+  redirectUrl.searchParams.set('error', 'invalid_request');
+  return NextResponse.redirect(redirectUrl);
 }
 
