@@ -92,3 +92,4 @@ export function TrainingTypeSelector({ onSelect }: TrainingTypeSelectorProps) {
 
 
 
+

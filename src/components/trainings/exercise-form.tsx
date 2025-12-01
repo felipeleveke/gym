@@ -177,25 +177,25 @@ export function ExerciseForm({
       <CardContent className="space-y-4">
         {/* Series */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label className="text-sm sm:text-base">Series</Label>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={addSet}
-              className="h-7 sm:h-8 text-xs sm:text-sm"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              <span className="hidden sm:inline">Agregar Serie</span>
-              <span className="sm:hidden">Agregar</span>
-            </Button>
-          </div>
+          <Label className="text-sm sm:text-base">Series</Label>
 
           {sets.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              No hay series. Agrega al menos una serie.
-            </p>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No hay series. Agrega al menos una serie.
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addSet}
+                className="h-7 sm:h-8 text-xs sm:text-sm w-full"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                <span className="hidden sm:inline">Agregar Serie</span>
+                <span className="sm:hidden">Agregar</span>
+              </Button>
+            </div>
           ) : (
             <div className="space-y-2">
               {sets.map((set, index) => (
@@ -360,6 +360,17 @@ export function ExerciseForm({
                   </div>
                 </div>
               ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addSet}
+                className="h-7 sm:h-8 text-xs sm:text-sm w-full"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                <span className="hidden sm:inline">Agregar Serie</span>
+                <span className="sm:hidden">Agregar</span>
+              </Button>
             </div>
           )}
         </div>
