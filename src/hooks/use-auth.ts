@@ -49,7 +49,7 @@ export function useAuth() {
             access_type: 'offline',
             prompt: 'consent',
           },
-          skipHttpRedirect: false,
+          skipBrowserRedirect: false,
         },
       });
 
