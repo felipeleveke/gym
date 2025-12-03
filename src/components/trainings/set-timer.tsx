@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Play, Pause, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -15,6 +16,9 @@ interface SetTimerProps {
   canStart: boolean; // Si puede iniciar (la serie anterior está en descanso o es la primera)
   activeSetId?: string | null; // ID de la serie actualmente activa
   defaultRestTime?: number; // Tiempo predeterminado de descanso para el countdown
+  weight?: number | null; // Peso de la serie
+  reps?: number | null; // Repeticiones de la serie
+  rir?: number | null; // RIR de la serie
   onExerciseTimeUpdate?: (seconds: number) => void;
   onRestTimeUpdate?: (seconds: number) => void;
   onStart: () => void; // Callback cuando se inicia el ejercicio
@@ -30,6 +34,9 @@ export function SetTimer({
   canStart,
   activeSetId,
   defaultRestTime = 60,
+  weight,
+  reps,
+  rir,
   onExerciseTimeUpdate,
   onRestTimeUpdate,
   onStart,
@@ -204,8 +211,18 @@ export function SetTimer({
     };
   }, [state, restCountdownEnabled, restCountdown, playAlarm]);
 
+  // Validaciones
+  const canStartExercise = () => {
+    return weight !== null && weight !== undefined && weight > 0;
+  };
+
+  const canStartRest = () => {
+    return reps !== null && reps !== undefined && reps > 0 && 
+           rir !== null && rir !== undefined;
+  };
+
   const handleStartExercise = () => {
-    if (state === 'idle' && canStart) {
+    if (state === 'idle' && canStart && canStartExercise()) {
       setState('exercising');
       setExerciseSeconds(0);
       onStart();
@@ -213,7 +230,7 @@ export function SetTimer({
   };
 
   const handleStartRest = () => {
-    if (state === 'exercising') {
+    if (state === 'exercising' && canStartRest()) {
       // Guardar tiempo de ejercicio
       onExerciseTimeUpdate?.(exerciseSeconds);
       // Cambiar a estado de descanso (el botón mostrará "Completado")
@@ -272,47 +289,92 @@ export function SetTimer({
 
   const handleButtonClick = () => {
     if (state === 'idle') {
-      handleStartExercise();
+      if (canStartExercise()) {
+        handleStartExercise();
+      }
     } else if (state === 'exercising') {
       if (isLastSet) {
         handleComplete();
       } else {
-        handleStartRest();
+        if (canStartRest()) {
+          handleStartRest();
+        }
       }
     }
   };
 
+  const getDisabledReason = () => {
+    if (state === 'idle' && !canStartExercise()) {
+      return 'Ingresa el peso para comenzar';
+    }
+    if (state === 'exercising' && !isLastSet && !canStartRest()) {
+      const missing = [];
+      if (!reps || reps <= 0) missing.push('repeticiones');
+      if (rir === null || rir === undefined) missing.push('RIR');
+      return `Ingresa ${missing.join(' y ')} para activar el descanso`;
+    }
+    return null;
+  };
+
+  const isButtonDisabled = () => {
+    if (state === 'completed' || state === 'resting') {
+      return true;
+    }
+    if (state === 'idle') {
+      return !canStart || !canStartExercise();
+    }
+    if (state === 'exercising' && !isLastSet) {
+      return !canStartRest();
+    }
+    return false;
+  };
+
+  const disabledReason = getDisabledReason();
+  const buttonDisabled = isButtonDisabled();
+
   return (
-    <div className={cn('flex flex-col gap-1.5 sm:gap-2', className)}>
-      <div className="flex items-center gap-1.5 sm:gap-2">
-        <Button
-          type="button"
-          onClick={handleButtonClick}
-          size="sm"
-          variant={getButtonVariant()}
-          className="h-8 sm:h-9 min-w-[100px] sm:min-w-[120px] text-xs sm:text-sm"
-          disabled={state === 'completed' || (state === 'resting') || (state === 'idle' && !canStart)}
-        >
-          {state === 'completed' || state === 'resting' ? (
-            <>
-              <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
-              <span className="hidden sm:inline">{getButtonText()}</span>
-              <span className="sm:hidden">✓</span>
-            </>
-          ) : state === 'exercising' ? (
-            <>
-              <Pause className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
-              <span className="hidden sm:inline">{getButtonText()}</span>
-              <span className="sm:hidden">⏸</span>
-            </>
-          ) : (
-            <>
-              <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
-              <span className="hidden sm:inline">{getButtonText()}</span>
-              <span className="sm:hidden">▶</span>
-            </>
-          )}
-        </Button>
+    <TooltipProvider>
+      <div className={cn('flex flex-col gap-1.5 sm:gap-2', className)}>
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-block">
+                <Button
+                  type="button"
+                  onClick={handleButtonClick}
+                  size="sm"
+                  variant={getButtonVariant()}
+                  className="h-8 sm:h-9 min-w-[100px] sm:min-w-[120px] text-xs sm:text-sm"
+                  disabled={buttonDisabled}
+                >
+                  {state === 'completed' || state === 'resting' ? (
+                    <>
+                      <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+                      <span className="hidden sm:inline">{getButtonText()}</span>
+                      <span className="sm:hidden">✓</span>
+                    </>
+                  ) : state === 'exercising' ? (
+                    <>
+                      <Pause className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+                      <span className="hidden sm:inline">{getButtonText()}</span>
+                      <span className="sm:hidden">⏸</span>
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-3 w-3 sm:h-4 sm:w-4 mr-0.5 sm:mr-1" />
+                      <span className="hidden sm:inline">{getButtonText()}</span>
+                      <span className="sm:hidden">▶</span>
+                    </>
+                  )}
+                </Button>
+              </span>
+            </TooltipTrigger>
+            {disabledReason && (
+              <TooltipContent>
+                <p className="text-xs">{disabledReason}</p>
+              </TooltipContent>
+            )}
+          </Tooltip>
         <div className="flex-1 min-w-[60px] sm:min-w-[80px] text-center">
           {state === 'exercising' ? (
             <div className="flex flex-col">
@@ -389,6 +451,7 @@ export function SetTimer({
           )}
         </div>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }

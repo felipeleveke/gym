@@ -309,6 +309,9 @@ export function ExerciseForm({
                         isCompleted={completedSetIds.has(set.id)}
                         activeSetId={activeSetId}
                         defaultRestTime={defaultRestTime}
+                        weight={set.weight}
+                        reps={set.reps}
+                        rir={set.rir}
                         canStart={
                           index === 0 
                             ? true 
