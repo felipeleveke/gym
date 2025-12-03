@@ -153,17 +153,24 @@ export async function PUT(
       }
 
       // Actualizar el entrenamiento
+      const updateData: any = {
+        date: dateValue,
+        duration: duration,
+        start_time: startTimeValue,
+        end_time: endTimeValue,
+        notes: trainingInfo.notes || null,
+        tags: trainingInfo.tags || null,
+        updated_at: new Date().toISOString(),
+      };
+      
+      // Solo actualizar routine_id si se proporciona
+      if (trainingInfo.routine_id !== undefined) {
+        updateData.routine_id = trainingInfo.routine_id;
+      }
+
       const { error: updateError } = await supabase
         .from('gym_trainings')
-        .update({
-          date: dateValue,
-          duration: duration,
-          start_time: startTimeValue,
-          end_time: endTimeValue,
-          notes: trainingInfo.notes || null,
-          tags: trainingInfo.tags || null,
-          updated_at: new Date().toISOString(),
-        })
+        .update(updateData)
         .eq('id', id);
 
       if (updateError) {

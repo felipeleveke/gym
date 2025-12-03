@@ -52,6 +52,12 @@ interface ExerciseFormProps {
   canMoveDown: boolean;
   onTrainingComplete?: () => void;
   onFirstExerciseStart?: () => void;
+  previousMarks?: {
+    lastWeight?: number | null;
+    lastReps?: number | null;
+    bestWeight?: number | null;
+    bestReps?: number | null;
+  };
 }
 
 export function ExerciseForm({
@@ -71,6 +77,7 @@ export function ExerciseForm({
   canMoveDown,
   onTrainingComplete,
   onFirstExerciseStart,
+  previousMarks,
 }: ExerciseFormProps) {
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [restingSetId, setRestingSetId] = useState<string | null>(null);
@@ -161,6 +168,20 @@ export function ExerciseForm({
                 <Badge variant="secondary" className="text-[10px] sm:text-xs shrink-0">
                   #{exerciseIndex + 1}
                 </Badge>
+                {previousMarks && (previousMarks.lastWeight || previousMarks.bestWeight) && (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {previousMarks.lastWeight && (
+                      <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                        Último: {previousMarks.lastWeight}kg{previousMarks.lastReps ? ` × ${previousMarks.lastReps}` : ''}
+                      </Badge>
+                    )}
+                    {previousMarks.bestWeight && previousMarks.bestWeight !== previousMarks.lastWeight && (
+                      <Badge variant="outline" className="text-[10px] sm:text-xs shrink-0 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                        Mejor: {previousMarks.bestWeight}kg{previousMarks.bestReps ? ` × ${previousMarks.bestReps}` : ''}
+                      </Badge>
+                    )}
+                  </div>
+                )}
               </div>
               {exercise.muscle_groups && exercise.muscle_groups.length > 0 && (
                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">

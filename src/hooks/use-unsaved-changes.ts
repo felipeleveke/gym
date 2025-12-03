@@ -59,21 +59,8 @@ export function useUnsavedChanges({
     setPendingNavigation(null);
   }, []);
 
-  // Interceptar eventos del navegador (beforeunload)
-  useEffect(() => {
-    if (!hasUnsavedChanges) return;
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = message;
-      return message;
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [hasUnsavedChanges, message]);
+  // Removido el listener de beforeunload para evitar el mensaje del navegador
+  // Solo usamos nuestro diálogo custom que es más elegante
 
   // Interceptar clicks en links del sidebar y otros elementos
   useEffect(() => {

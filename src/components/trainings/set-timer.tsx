@@ -244,7 +244,7 @@ export function SetTimer({
   };
 
   const handleComplete = () => {
-    if (state === 'exercising') {
+    if (state === 'exercising' && canStartRest()) {
       setState('completed');
       // Guardar tiempo de ejercicio
       onExerciseTimeUpdate?.(exerciseSeconds);
@@ -294,7 +294,9 @@ export function SetTimer({
       }
     } else if (state === 'exercising') {
       if (isLastSet) {
-        handleComplete();
+        if (canStartRest()) {
+          handleComplete();
+        }
       } else {
         if (canStartRest()) {
           handleStartRest();
@@ -307,11 +309,15 @@ export function SetTimer({
     if (state === 'idle' && !canStartExercise()) {
       return 'Ingresa el peso para comenzar';
     }
-    if (state === 'exercising' && !isLastSet && !canStartRest()) {
+    if (state === 'exercising' && !canStartRest()) {
       const missing = [];
       if (!reps || reps <= 0) missing.push('repeticiones');
       if (rir === null || rir === undefined) missing.push('RIR');
-      return `Ingresa ${missing.join(' y ')} para activar el descanso`;
+      if (isLastSet) {
+        return `Ingresa ${missing.join(' y ')} para terminar el entrenamiento`;
+      } else {
+        return `Ingresa ${missing.join(' y ')} para activar el descanso`;
+      }
     }
     return null;
   };
@@ -323,7 +329,7 @@ export function SetTimer({
     if (state === 'idle') {
       return !canStart || !canStartExercise();
     }
-    if (state === 'exercising' && !isLastSet) {
+    if (state === 'exercising') {
       return !canStartRest();
     }
     return false;

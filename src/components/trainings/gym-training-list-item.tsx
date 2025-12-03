@@ -2,11 +2,16 @@
 
 import { useState } from 'react';
 import { formatDateRelative, formatTime, cn } from '@/lib/utils';
-import { Dumbbell, Clock, Tag, ChevronDown, ChevronUp } from 'lucide-react';
+import { Dumbbell, Clock, Tag, ChevronDown, ChevronUp, BookOpen, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { MarkdownNotes } from '@/components/ui/markdown-notes';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { useToast } from '@/hooks/use-toast';
 
 interface ExerciseSet {
   id: string;
@@ -51,6 +56,11 @@ export function GymTrainingListItem({
   onSelectChange
 }: GymTrainingListItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showRoutineDialog, setShowRoutineDialog] = useState(false);
+  const [routineName, setRoutineName] = useState('');
+  const [routineDescription, setRoutineDescription] = useState('');
+  const [isCreatingRoutine, setIsCreatingRoutine] = useState(false);
+  const { toast } = useToast();
   
   const exerciseCount = training.training_exercises?.length || 0;
   const totalSets = training.training_exercises?.reduce(
@@ -64,6 +74,55 @@ export function GymTrainingListItem({
 
   const handleCheckboxChange = (checked: boolean) => {
     onSelectChange?.(checked);
+  };
+
+  const handleCreateRoutine = async () => {
+    if (!routineName.trim()) {
+      toast({
+        title: 'Error',
+        description: 'El nombre de la rutina es requerido',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsCreatingRoutine(true);
+    try {
+      const response = await fetch('/api/routines/from-training', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          trainingId: training.id,
+          name: routineName.trim(),
+          description: routineDescription.trim() || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al crear la rutina');
+      }
+
+      toast({
+        title: 'Rutina creada',
+        description: `La rutina "${routineName.trim()}" ha sido creada exitosamente.`,
+      });
+
+      setShowRoutineDialog(false);
+      setRoutineName('');
+      setRoutineDescription('');
+    } catch (error) {
+      console.error('Error creando rutina:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'No se pudo crear la rutina',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCreatingRoutine(false);
+    }
   };
 
   return (
@@ -178,9 +237,9 @@ export function GymTrainingListItem({
           )}
         </div>
 
-        {/* Botón para expandir/colapsar */}
+        {/* Botones de acción */}
         {exerciseCount > 0 && (
-          <div className="md:shrink-0">
+          <div className="md:shrink-0 flex flex-col sm:flex-row gap-2">
             <Button
               variant="ghost"
               size="sm"
@@ -199,9 +258,74 @@ export function GymTrainingListItem({
                 </>
               )}
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowRoutineDialog(true)}
+              className="w-full md:w-auto"
+            >
+              <BookOpen className="h-4 w-4 mr-2" />
+              Establecer como rutina
+            </Button>
           </div>
         )}
       </div>
+
+      {/* Diálogo para crear rutina */}
+      <Dialog open={showRoutineDialog} onOpenChange={setShowRoutineDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Crear rutina desde entrenamiento</DialogTitle>
+            <DialogDescription>
+              Crea una rutina reutilizable basada en este entrenamiento. Los ejercicios y pesos se guardarán como plantilla.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="routine-name-list">Nombre de la rutina *</Label>
+              <Input
+                id="routine-name-list"
+                placeholder="Ej: Rutina de piernas"
+                value={routineName}
+                onChange={(e) => setRoutineName(e.target.value)}
+                disabled={isCreatingRoutine}
+                autoFocus
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="routine-description-list">Descripción (opcional)</Label>
+              <Textarea
+                id="routine-description-list"
+                placeholder="Descripción de la rutina..."
+                value={routineDescription}
+                onChange={(e) => setRoutineDescription(e.target.value)}
+                disabled={isCreatingRoutine}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRoutineDialog(false);
+                setRoutineName('');
+                setRoutineDescription('');
+              }}
+              disabled={isCreatingRoutine}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleCreateRoutine}
+              disabled={isCreatingRoutine || !routineName.trim()}
+            >
+              {isCreatingRoutine && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Crear rutina
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

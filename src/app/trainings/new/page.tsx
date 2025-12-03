@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { TrainingTypeSelector } from '@/components/trainings/training-type-selector';
 import { GymTrainingFormDetailed } from '@/components/trainings/gym-training-form-detailed';
 import { SportTrainingForm } from '@/components/trainings/sport-training-form';
@@ -11,7 +12,16 @@ import { OtherTrainingForm } from '@/components/trainings/other-training-form';
 type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other' | null;
 
 export default function NewTrainingPage() {
-  const [selectedType, setSelectedType] = useState<TrainingType>(null);
+  const searchParams = useSearchParams();
+  const routineId = searchParams.get('routineId');
+  const [selectedType, setSelectedType] = useState<TrainingType>(routineId ? 'gym' : null);
+
+  useEffect(() => {
+    // Si hay un routineId, automáticamente seleccionar tipo gym
+    if (routineId) {
+      setSelectedType('gym');
+    }
+  }, [routineId]);
 
   const handleTypeSelect = (type: TrainingType) => {
     setSelectedType(type);
@@ -28,7 +38,7 @@ export default function NewTrainingPage() {
         {!selectedType ? (
           <TrainingTypeSelector onSelect={handleTypeSelect} />
         ) : selectedType === 'gym' ? (
-          <GymTrainingFormDetailed onBack={handleBack} />
+          <GymTrainingFormDetailed onBack={handleBack} routineId={routineId || undefined} />
         ) : selectedType === 'sport' ? (
           <SportTrainingForm onBack={handleBack} />
         ) : selectedType === 'cardio' ? (

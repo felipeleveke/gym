@@ -223,6 +223,7 @@ export async function POST(request: NextRequest) {
           duration: duration,
           start_time: startTimeValue,
           end_time: endTimeValue,
+          routine_id: trainingInfo.routine_id || null,
           notes: trainingInfo.notes || null,
           tags: trainingInfo.tags || null,
         })

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -58,44 +58,136 @@ interface GymTrainingFormDetailedProps {
   onBack: () => void;
   initialData?: any;
   trainingId?: string;
+  routineId?: string;
 }
 
-export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: GymTrainingFormDetailedProps) {
+export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routineId }: GymTrainingFormDetailedProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
+  const [loadingRoutine, setLoadingRoutine] = useState(!!routineId);
+  const [routineHistory, setRoutineHistory] = useState<Record<string, {
+    lastWeight?: number | null;
+    lastReps?: number | null;
+    bestWeight?: number | null;
+    bestReps?: number | null;
+  }>>({});
   
-  // Pre-poblar ejercicios si hay initialData
+  // Pre-poblar ejercicios si hay initialData o routineId
   const [exercises, setExercises] = useState<TrainingExercise[]>(() => {
-    if (!initialData?.training_exercises || !Array.isArray(initialData.training_exercises)) {
-      return [];
+    if (initialData?.training_exercises && Array.isArray(initialData.training_exercises)) {
+      return initialData.training_exercises
+        .sort((a: any, b: any) => a.order_index - b.order_index)
+        .map((te: any) => ({
+          exercise: te.exercise || {
+            id: te.exercise_id,
+            name: 'Ejercicio desconocido',
+          },
+          sets: (te.exercise_sets || [])
+            .sort((a: any, b: any) => a.set_number - b.set_number)
+            .map((set: any) => ({
+              id: set.id,
+              set_number: set.set_number,
+              weight: set.weight,
+              reps: set.reps,
+              duration: set.duration,
+              rest_time: set.rest_time,
+              rir: set.rir,
+              notes: set.notes,
+              set_type: set.set_type || 'working',
+            })),
+          notes: te.notes || '',
+          start_time: te.start_time,
+          end_time: te.end_time,
+        }));
     }
-    return initialData.training_exercises
-      .sort((a: any, b: any) => a.order_index - b.order_index)
-      .map((te: any) => ({
-        exercise: te.exercise || {
-          id: te.exercise_id,
-          name: 'Ejercicio desconocido',
-        },
-        sets: (te.exercise_sets || [])
-          .sort((a: any, b: any) => a.set_number - b.set_number)
-          .map((set: any) => ({
-            id: set.id,
-            set_number: set.set_number,
-            weight: set.weight,
-            reps: set.reps,
-            duration: set.duration,
-            rest_time: set.rest_time,
-            rir: set.rir,
-            notes: set.notes,
-            set_type: set.set_type || 'working',
-          })),
-        notes: te.notes || '',
-        start_time: te.start_time,
-        end_time: te.end_time,
-      }));
+    return [];
   });
+
+  // Cargar rutina si hay routineId
+  useEffect(() => {
+    if (!routineId) return;
+
+    const loadRoutine = async () => {
+      try {
+        // Cargar la rutina y el historial en paralelo
+        const [routineResponse, historyResponse] = await Promise.all([
+          fetch(`/api/routines/${routineId}`),
+          fetch(`/api/routines/${routineId}/history`),
+        ]);
+
+        if (!routineResponse.ok) {
+          throw new Error('Error al cargar la rutina');
+        }
+        const routineData = await routineResponse.json();
+        const routine = routineData.data;
+
+        // Procesar historial si está disponible
+        let exerciseStats: Record<string, {
+          lastWeight?: number | null;
+          lastReps?: number | null;
+          bestWeight?: number | null;
+          bestReps?: number | null;
+        }> = {};
+        
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          exerciseStats = historyData.data.exerciseStats || {};
+          setRoutineHistory(exerciseStats);
+        }
+
+        // Pre-poblar ejercicios desde la rutina
+        if (routine.routine_exercises && Array.isArray(routine.routine_exercises)) {
+          const routineExercises: TrainingExercise[] = routine.routine_exercises
+            .sort((a: any, b: any) => a.order_index - b.order_index)
+            .map((re: any) => {
+              const exerciseId = re.exercise_id;
+              const history = exerciseStats[exerciseId] || {};
+              
+              const numSets = re.default_sets || 1;
+              const sets = Array.from({ length: numSets }, (_, i) => ({
+                id: `temp-${Date.now()}-${re.order_index}-${i}`,
+                set_number: i + 1,
+                weight: re.default_weight || history.lastWeight || null,
+                reps: null, // No pre-poblar reps según especificaciones
+                set_type: 'working' as const,
+              }));
+              
+              return {
+                exercise: re.exercise || {
+                  id: re.exercise_id,
+                  name: 'Ejercicio desconocido',
+                },
+                sets,
+                notes: re.notes || '',
+                start_time: null,
+                end_time: null,
+              };
+            });
+          
+          setExercises(routineExercises);
+        }
+
+        toast({
+          title: 'Rutina cargada',
+          description: `Se han cargado ${routine.routine_exercises?.length || 0} ejercicios de la rutina "${routine.name}".`,
+        });
+      } catch (error) {
+        console.error('Error cargando rutina:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudo cargar la rutina',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingRoutine(false);
+      }
+    };
+
+    loadRoutine();
+  }, [routineId, toast]);
   
   // Pre-poblar tiempos del entrenamiento
   const [trainingStartTime, setTrainingStartTime] = useState<string | null>(initialData?.start_time || null);
@@ -188,6 +280,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
 
   // Detectar si hay cambios sin guardar
   const hasUnsavedChanges = useMemo(() => {
+    // Si ya se guardó exitosamente, no hay cambios sin guardar
+    if (isSaved) return false;
+    
     // Comparar ejercicios
     const initialExercises = initialStateRef.current.exercises;
     const currentExercises = exercises;
@@ -251,7 +346,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
     }
 
     return false;
-  }, [exercises, trainingStartTime, trainingEndTime, trainingNotes, trainingTags]);
+  }, [exercises, trainingStartTime, trainingEndTime, trainingNotes, trainingTags, isSaved]);
 
   // Hook para manejar cambios sin guardar
   const {
@@ -529,6 +624,11 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
   };
 
   const onSubmit = async (data: GymTrainingFormData) => {
+    // Prevenir múltiples envíos
+    if (isSubmitting || isSaved) {
+      return;
+    }
+
     // Validar que haya al menos un ejercicio con al menos una serie
     if (exercises.length === 0) {
       toast({
@@ -624,6 +724,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
           duration: calculatedDuration,
           start_time: trainingStartTime,
           end_time: trainingEndTime,
+          routine_id: routineId || null, // Guardar referencia a la rutina si existe
           notes: watch('notes') || null,
           tags: tagsArray.length > 0 ? tagsArray : null,
           exercises: finalExercises.filter((ex) => ex.sets.length > 0).map((ex, index) => ({
@@ -653,12 +754,43 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
 
       const result = await response.json();
       
+      // Actualizar el estado inicial con los datos guardados para evitar el diálogo de confirmación
+      initialStateRef.current = {
+        exercises: finalExercises.map((ex, index) => ({
+          exercise: ex.exercise,
+          exercise_id: ex.exercise.id,
+          order_index: index + 1,
+          notes: ex.notes || null,
+          exercise_sets: ex.sets.map((set, setIndex) => ({
+            id: set.id,
+            set_number: setIndex + 1,
+            weight: set.weight,
+            reps: set.reps,
+            duration: set.duration,
+            rest_time: set.rest_time,
+            rir: set.rir,
+            notes: set.notes || null,
+            set_type: set.set_type || 'working',
+          })),
+        })),
+        startTime: trainingStartTime,
+        endTime: trainingEndTime,
+        notes: watch('notes') || '',
+        tags: trainingTags,
+      };
+      
+      // Marcar como guardado antes de redirigir
+      setIsSaved(true);
+      
       toast({
         title: isEditMode ? 'Entrenamiento actualizado' : 'Entrenamiento creado',
         description: `Tu entrenamiento con ${finalExercises.filter((ex) => ex.sets.length > 0).length} ejercicio(s) ha sido ${isEditMode ? 'actualizado' : 'registrado'} exitosamente.`,
       });
 
-      router.push('/trainings');
+      // Redirigir después de un breve delay para asegurar que el estado se actualice
+      setTimeout(() => {
+        router.push('/trainings');
+      }, 100);
     } catch (error) {
       console.error(`Error ${trainingId ? 'updating' : 'creating'} gym training:`, error);
       toast({
@@ -872,6 +1004,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
                             description: `Hora de término: ${new Date(now).toLocaleTimeString()}`,
                           });
                         }}
+                        previousMarks={routineId ? routineHistory[trainingExercise.exercise.id] : undefined}
                       />
                     </div>
                   ))}
@@ -913,12 +1046,21 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId }: Gym
 
             {/* Botones */}
             <div className="flex gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={handleBack} disabled={isSubmitting}>
+              <Button type="button" variant="outline" onClick={handleBack} disabled={isSubmitting || isSaved || loadingRoutine}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting || exercises.length === 0}>
+              <Button type="submit" disabled={isSubmitting || isSaved || loadingRoutine || exercises.length === 0 || generatingExerciseSummaries.size > 0 || generatingTrainingSummary}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {trainingId ? 'Actualizar Entrenamiento' : 'Crear Entrenamiento'}
+                {loadingRoutine ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Cargando rutina...
+                  </>
+                ) : isSubmitting ? (
+                  trainingId ? 'Actualizando...' : 'Guardando...'
+                ) : (
+                  trainingId ? 'Actualizar Entrenamiento' : 'Crear Entrenamiento'
+                )}
               </Button>
             </div>
           </form>
