@@ -8,10 +8,11 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GripVertical, Trash2, Plus, X, Loader2 } from 'lucide-react';
+import { GripVertical, Trash2, Plus, X, Loader2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SetTimer } from './set-timer';
 import { EditableMarkdown } from '@/components/ui/editable-markdown';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export type SetType = 'warmup' | 'approach' | 'working' | 'bilbo';
 
@@ -43,6 +44,12 @@ interface ExerciseFormProps {
   isLastExercise: boolean;
   defaultRestTime?: number;
   isGeneratingSummary?: boolean;
+  globalActiveSetId?: string | null;
+  globalRestingSetId?: string | null;
+  onGlobalSetStart?: (setId: string) => void;
+  onGlobalSetStop?: () => void;
+  onGlobalSetRest?: (setId: string) => void;
+  onGlobalSetComplete?: () => void;
   onUpdateSets: (sets: ExerciseSet[]) => void;
   onUpdateNotes: (notes: string) => void;
   onRemove: () => void;
@@ -58,6 +65,13 @@ interface ExerciseFormProps {
     bestWeight?: number | null;
     bestReps?: number | null;
   };
+  previousSetMarks?: Record<number, {
+    lastWeight?: number | null;
+    lastReps?: number | null;
+    lastRir?: number | null;
+    lastNotes?: string | null;
+    bestWeight?: number | null;
+  }>;
 }
 
 export function ExerciseForm({
@@ -68,6 +82,12 @@ export function ExerciseForm({
   isLastExercise,
   defaultRestTime = 60,
   isGeneratingSummary = false,
+  globalActiveSetId,
+  globalRestingSetId,
+  onGlobalSetStart,
+  onGlobalSetStop,
+  onGlobalSetRest,
+  onGlobalSetComplete,
   onUpdateSets,
   onUpdateNotes,
   onRemove,
@@ -78,6 +98,7 @@ export function ExerciseForm({
   onTrainingComplete,
   onFirstExerciseStart,
   previousMarks,
+  previousSetMarks,
 }: ExerciseFormProps) {
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [restingSetId, setRestingSetId] = useState<string | null>(null);
@@ -108,6 +129,9 @@ export function ExerciseForm({
   };
 
   const handleSetStart = (setId: string) => {
+    // Notificar al componente padre que se inicia una serie globalmente
+    onGlobalSetStart?.(setId);
+    
     // Si es el primer ejercicio y la primera serie, establecer hora de inicio
     if (exerciseIndex === 0 && sets[0]?.id === setId && !activeSetId) {
       onFirstExerciseStart?.();
@@ -125,12 +149,16 @@ export function ExerciseForm({
     // La serie entra en descanso
     setActiveSetId(null);
     setRestingSetId(setId);
+    // Notificar al componente padre que la serie entra en descanso
+    onGlobalSetRest?.(setId);
   };
 
   const handleSetComplete = (setId: string) => {
     setCompletedSetIds((prev) => new Set(prev).add(setId));
     setActiveSetId(null);
     setRestingSetId(null);
+    // Notificar al componente padre que se completa la serie
+    onGlobalSetComplete?.();
     if (isLastExercise) {
       // Es la última serie del último ejercicio, terminar entrenamiento
       onTrainingComplete?.();
@@ -219,19 +247,60 @@ export function ExerciseForm({
             </div>
           ) : (
             <div className="space-y-2">
-              {sets.map((set, index) => (
-                <div
-                  key={set.id}
-                  className="space-y-2 p-2 border rounded-md"
-                >
-                  {/* Primera fila: Campos principales - Mobile first: apilados, Desktop: grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-12 gap-2 items-end">
-                    {/* Número de serie */}
-                    <div className="col-span-2 sm:col-span-1 md:col-span-1 flex items-center justify-start sm:justify-center">
-                      <span className="text-xs sm:text-sm font-medium text-muted-foreground">
-                        #{set.set_number}
-                      </span>
-                    </div>
+              {sets.map((set, index) => {
+                const setHistory = previousSetMarks?.[set.set_number];
+                const hasHistory = setHistory && (
+                  setHistory.lastWeight !== null || 
+                  setHistory.lastReps !== null || 
+                  setHistory.lastRir !== null
+                );
+                
+                return (
+                <TooltipProvider key={set.id}>
+                  <div
+                    className="space-y-2 p-2 border rounded-md"
+                  >
+                    {/* Primera fila: Campos principales - Mobile first: apilados, Desktop: grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-12 gap-2 items-end">
+                      {/* Número de serie con tooltip de historial */}
+                      <div className="col-span-2 sm:col-span-1 md:col-span-1 flex items-center justify-start sm:justify-center gap-1">
+                        {hasHistory ? (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-1 cursor-help">
+                                <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                                  #{set.set_number}
+                                </span>
+                                <Info className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <div className="space-y-1 text-xs">
+                                <p className="font-semibold">Historial previo:</p>
+                                {setHistory.lastWeight !== null && (
+                                  <p>Peso: {setHistory.lastWeight} kg</p>
+                                )}
+                                {setHistory.lastReps !== null && (
+                                  <p>Reps: {setHistory.lastReps}</p>
+                                )}
+                                {setHistory.lastRir !== null && (
+                                  <p>RIR: {setHistory.lastRir}</p>
+                                )}
+                                {setHistory.lastNotes && (
+                                  <p className="mt-1 pt-1 border-t">Notas: {setHistory.lastNotes}</p>
+                                )}
+                                {setHistory.bestWeight !== null && setHistory.bestWeight !== setHistory.lastWeight && (
+                                  <p className="mt-1 pt-1 border-t text-primary">Mejor peso: {setHistory.bestWeight} kg</p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-medium text-muted-foreground">
+                            #{set.set_number}
+                          </span>
+                        )}
+                      </div>
                     
                     {/* Tipo de serie */}
                     <div className="col-span-2 sm:col-span-1 md:col-span-1">
@@ -328,7 +397,8 @@ export function ExerciseForm({
                         setId={set.id}
                         isLastSet={isLastExercise && index === sets.length - 1}
                         isCompleted={completedSetIds.has(set.id)}
-                        activeSetId={activeSetId}
+                        activeSetId={globalActiveSetId}
+                        restingSetId={globalRestingSetId}
                         defaultRestTime={defaultRestTime}
                         weight={set.weight}
                         reps={set.reps}
@@ -382,8 +452,10 @@ export function ExerciseForm({
                       }}
                     />
                   </div>
-                </div>
-              ))}
+                  </div>
+                </TooltipProvider>
+              );
+              })}
               <Button
                 type="button"
                 variant="outline"

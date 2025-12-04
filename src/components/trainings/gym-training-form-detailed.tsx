@@ -74,6 +74,13 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
     bestWeight?: number | null;
     bestReps?: number | null;
   }>>({});
+  const [routineSetHistory, setRoutineSetHistory] = useState<Record<string, Record<number, {
+    lastWeight?: number | null;
+    lastReps?: number | null;
+    lastRir?: number | null;
+    lastNotes?: string | null;
+    bestWeight?: number | null;
+  }>>>({});
   
   // Pre-poblar ejercicios si hay initialData o routineId
   const [exercises, setExercises] = useState<TrainingExercise[]>(() => {
@@ -131,11 +138,20 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
           bestWeight?: number | null;
           bestReps?: number | null;
         }> = {};
+        let exerciseSetStats: Record<string, Record<number, {
+          lastWeight?: number | null;
+          lastReps?: number | null;
+          lastRir?: number | null;
+          lastNotes?: string | null;
+          bestWeight?: number | null;
+        }>> = {};
         
         if (historyResponse.ok) {
           const historyData = await historyResponse.json();
           exerciseStats = historyData.data.exerciseStats || {};
+          exerciseSetStats = historyData.data.exerciseSetStats || {};
           setRoutineHistory(exerciseStats);
+          setRoutineSetHistory(exerciseSetStats);
         }
 
         // Pre-poblar ejercicios desde la rutina
@@ -145,15 +161,23 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
             .map((re: any) => {
               const exerciseId = re.exercise_id;
               const history = exerciseStats[exerciseId] || {};
+              const setHistory = exerciseSetStats[exerciseId] || {};
               
               const numSets = re.default_sets || 1;
-              const sets = Array.from({ length: numSets }, (_, i) => ({
-                id: `temp-${Date.now()}-${re.order_index}-${i}`,
-                set_number: i + 1,
-                weight: re.default_weight || history.lastWeight || null,
-                reps: null, // No pre-poblar reps según especificaciones
-                set_type: 'working' as const,
-              }));
+              const sets = Array.from({ length: numSets }, (_, i) => {
+                const setNumber = i + 1;
+                const setData = setHistory[setNumber] || {};
+                // Usar el peso del historial de esa serie específica, o el default_weight, o el lastWeight general
+                const setWeight = setData.lastWeight || re.default_weight || history.lastWeight || null;
+                
+                return {
+                  id: `temp-${Date.now()}-${re.order_index}-${i}`,
+                  set_number: setNumber,
+                  weight: setWeight,
+                  reps: null, // No pre-poblar reps según especificaciones
+                  set_type: 'working' as const,
+                };
+              });
               
               return {
                 exercise: re.exercise || {
@@ -196,9 +220,37 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   // Tiempo predeterminado de descanso para el countdown (en segundos)
   const [defaultRestTime, setDefaultRestTime] = useState<number>(60);
   
+  // Estado global para coordinar qué serie está activamente ejercitándose
+  const [globalActiveSetId, setGlobalActiveSetId] = useState<string | null>(null);
+  // Estado global para coordinar qué serie está en descanso
+  const [globalRestingSetId, setGlobalRestingSetId] = useState<string | null>(null);
+  
   // Estados para indicadores de carga de resúmenes
   const [generatingExerciseSummaries, setGeneratingExerciseSummaries] = useState<Set<number>>(new Set());
   const [generatingTrainingSummary, setGeneratingTrainingSummary] = useState(false);
+  
+  // Callback para cuando se inicia una serie globalmente
+  const handleGlobalSetStart = (setId: string) => {
+    setGlobalActiveSetId(setId);
+    setGlobalRestingSetId(null); // Limpiar descanso cuando se inicia ejercicio
+  };
+  
+  // Callback para cuando se detiene una serie globalmente
+  const handleGlobalSetStop = () => {
+    setGlobalActiveSetId(null);
+  };
+  
+  // Callback para cuando una serie entra en descanso
+  const handleGlobalSetRest = (setId: string) => {
+    setGlobalActiveSetId(null);
+    setGlobalRestingSetId(setId);
+  };
+  
+  // Callback para cuando se completa una serie (termina descanso)
+  const handleGlobalSetComplete = () => {
+    setGlobalActiveSetId(null);
+    setGlobalRestingSetId(null);
+  };
 
   // Calcular duración automáticamente cuando hay start_time y end_time
   const calculatedDuration = trainingStartTime && trainingEndTime
@@ -983,6 +1035,12 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                         isLastExercise={index === exercises.length - 1}
                         defaultRestTime={defaultRestTime}
                         isGeneratingSummary={generatingExerciseSummaries.has(index)}
+                        globalActiveSetId={globalActiveSetId}
+                        globalRestingSetId={globalRestingSetId}
+                        onGlobalSetStart={handleGlobalSetStart}
+                        onGlobalSetStop={handleGlobalSetStop}
+                        onGlobalSetRest={handleGlobalSetRest}
+                        onGlobalSetComplete={handleGlobalSetComplete}
                         onUpdateSets={(sets) => handleUpdateExerciseSets(index, sets)}
                         onUpdateNotes={(notes) => handleUpdateExerciseNotes(index, notes)}
                         onRemove={() => handleRemoveExercise(index)}
@@ -1005,6 +1063,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                           });
                         }}
                         previousMarks={routineId ? routineHistory[trainingExercise.exercise.id] : undefined}
+                        previousSetMarks={routineId ? routineSetHistory[trainingExercise.exercise.id] : undefined}
                       />
                     </div>
                   ))}

@@ -15,6 +15,7 @@ interface SetTimerProps {
   isCompleted: boolean;
   canStart: boolean; // Si puede iniciar (la serie anterior está en descanso o es la primera)
   activeSetId?: string | null; // ID de la serie actualmente activa
+  restingSetId?: string | null; // ID de la serie actualmente en descanso
   defaultRestTime?: number; // Tiempo predeterminado de descanso para el countdown
   weight?: number | null; // Peso de la serie
   reps?: number | null; // Repeticiones de la serie
@@ -33,6 +34,7 @@ export function SetTimer({
   isCompleted,
   canStart,
   activeSetId,
+  restingSetId,
   defaultRestTime = 60,
   weight,
   reps,
@@ -133,6 +135,7 @@ export function SetTimer({
     }
   }, [activeSetId, setId, state, restSeconds, onRestTimeUpdate]);
 
+
   // Cronómetro de ejercicio (cuando está corriendo)
   useEffect(() => {
     if (state === 'exercising') {
@@ -222,6 +225,12 @@ export function SetTimer({
   };
 
   const handleStartExercise = () => {
+    // No permitir iniciar si hay otra serie activa o en descanso
+    const hasOtherActiveSet = activeSetId !== null && activeSetId !== setId;
+    const hasOtherRestingSet = restingSetId !== null && restingSetId !== setId;
+    if (hasOtherActiveSet || hasOtherRestingSet) {
+      return;
+    }
     if (state === 'idle' && canStart && canStartExercise()) {
       setState('exercising');
       setExerciseSeconds(0);
@@ -306,6 +315,12 @@ export function SetTimer({
   };
 
   const getDisabledReason = () => {
+    // Verificar si hay otra serie activa o en descanso
+    const hasOtherActiveSet = activeSetId !== null && activeSetId !== setId;
+    const hasOtherRestingSet = restingSetId !== null && restingSetId !== setId;
+    if (state === 'idle' && (hasOtherActiveSet || hasOtherRestingSet)) {
+      return 'Hay otra serie en curso. Completa o detén la serie activa antes de iniciar una nueva';
+    }
     if (state === 'idle' && !canStartExercise()) {
       return 'Ingresa el peso para comenzar';
     }
@@ -327,7 +342,10 @@ export function SetTimer({
       return true;
     }
     if (state === 'idle') {
-      return !canStart || !canStartExercise();
+      // Deshabilitar si hay otra serie activa o en descanso, o si no cumple las condiciones para iniciar
+      const hasOtherActiveSet = activeSetId !== null && activeSetId !== setId;
+      const hasOtherRestingSet = restingSetId !== null && restingSetId !== setId;
+      return hasOtherActiveSet || hasOtherRestingSet || !canStart || !canStartExercise();
     }
     if (state === 'exercising') {
       return !canStartRest();

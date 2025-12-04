@@ -43,6 +43,8 @@ export async function GET(
             set_number,
             weight,
             reps,
+            rir,
+            notes,
             set_type
           )
         )
@@ -56,7 +58,7 @@ export async function GET(
       return NextResponse.json({ error: 'Error al obtener el historial' }, { status: 500 });
     }
 
-    // Procesar los datos para obtener las mejores marcas y último entrenamiento por ejercicio
+    // Procesar los datos para obtener las mejores marcas y último entrenamiento por ejercicio y serie
     const exerciseStats: Record<string, {
       lastWeight?: number | null;
       lastReps?: number | null;
@@ -64,6 +66,16 @@ export async function GET(
       bestReps?: number | null;
       lastDate?: string;
     }> = {};
+
+    // Nueva estructura: datos por ejercicio y número de serie
+    const exerciseSetStats: Record<string, Record<number, {
+      lastWeight?: number | null;
+      lastReps?: number | null;
+      lastRir?: number | null;
+      lastNotes?: string | null;
+      bestWeight?: number | null;
+      lastDate?: string;
+    }>> = {};
 
     trainings?.forEach((training) => {
       training.training_exercises?.forEach((te: any) => {
@@ -73,7 +85,39 @@ export async function GET(
           exerciseStats[exerciseId] = {};
         }
 
-        // Obtener la primera serie de tipo 'working' o la primera serie disponible
+        if (!exerciseSetStats[exerciseId]) {
+          exerciseSetStats[exerciseId] = {};
+        }
+
+        // Procesar todas las series
+        (te.exercise_sets || []).forEach((set: any) => {
+          const setNumber = set.set_number;
+          
+          if (!exerciseSetStats[exerciseId][setNumber]) {
+            exerciseSetStats[exerciseId][setNumber] = {};
+          }
+
+          const setStats = exerciseSetStats[exerciseId][setNumber];
+          const trainingDate = training.date;
+
+          // Si es el primer entrenamiento o es más reciente, actualizar último
+          if (!setStats.lastDate || new Date(trainingDate) > new Date(setStats.lastDate)) {
+            setStats.lastWeight = set.weight;
+            setStats.lastReps = set.reps;
+            setStats.lastRir = set.rir;
+            setStats.lastNotes = set.notes;
+            setStats.lastDate = trainingDate;
+          }
+
+          // Actualizar mejor marca por serie
+          if (set.weight) {
+            if (!setStats.bestWeight || set.weight > setStats.bestWeight) {
+              setStats.bestWeight = set.weight;
+            }
+          }
+        });
+
+        // Mantener compatibilidad con el código anterior: obtener la primera serie de tipo 'working' o la primera serie disponible
         const workingSet = (te.exercise_sets || []).find((set: any) => set.set_type === 'working')
           || (te.exercise_sets || [])[0];
 
@@ -101,7 +145,8 @@ export async function GET(
     return NextResponse.json({ 
       data: {
         trainings: trainings || [],
-        exerciseStats
+        exerciseStats,
+        exerciseSetStats
       }
     });
   } catch (error) {
@@ -112,4 +157,6 @@ export async function GET(
     );
   }
 }
+
+
 

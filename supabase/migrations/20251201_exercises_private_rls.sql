@@ -41,3 +41,7 @@ CREATE POLICY "Users can delete own exercises"
 -- Crear índice para mejorar rendimiento
 CREATE INDEX idx_exercises_created_by ON public.exercises(created_by);
 
+
+
+
+
