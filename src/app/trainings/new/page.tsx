@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { TrainingTypeSelector } from '@/components/trainings/training-type-selector';
 import { GymTrainingFormDetailed } from '@/components/trainings/gym-training-form-detailed';
@@ -11,7 +11,7 @@ import { OtherTrainingForm } from '@/components/trainings/other-training-form';
 
 type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other' | null;
 
-export default function NewTrainingPage() {
+function NewTrainingContent() {
   const searchParams = useSearchParams();
   const routineId = searchParams.get('routineId');
   const [selectedType, setSelectedType] = useState<TrainingType>(routineId ? 'gym' : null);
@@ -50,6 +50,21 @@ export default function NewTrainingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function NewTrainingPage() {
+  return (
+    <Suspense fallback={
+      <div className="p-4 md:p-6">
+        <h1 className="text-3xl font-bold mb-6">Nuevo Entrenamiento</h1>
+        <div className="flex items-center justify-center py-8">
+          <p className="text-muted-foreground">Cargando...</p>
+        </div>
+      </div>
+    }>
+      <NewTrainingContent />
+    </Suspense>
   );
 }
 

@@ -111,6 +111,7 @@ export function ExerciseForm({
   const [completedSetIds, setCompletedSetIds] = useState<Set<string>>(new Set());
   const [collapsedSetIds, setCollapsedSetIds] = useState<Set<string>>(new Set());
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const [exerciseCollapsed, setExerciseCollapsed] = useState(false);
 
   // Expandir notas automáticamente si tienen contenido o se está generando resumen
   useEffect(() => {
@@ -244,11 +245,45 @@ export function ExerciseForm({
               )}
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={onRemove} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
-            <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              onClick={() => setExerciseCollapsed(!exerciseCollapsed)} 
+              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
+            >
+              {exerciseCollapsed ? (
+                <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5" />
+              ) : (
+                <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5" />
+              )}
+            </Button>
+            <Button variant="ghost" size="icon" onClick={onRemove} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
+              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
+      {exerciseCollapsed ? (
+        <CardContent className="py-3">
+          <div className="text-sm text-muted-foreground">
+            {sets.length > 0 ? (
+              <div className="space-y-1">
+                <p className="font-medium">{sets.length} {sets.length === 1 ? 'serie' : 'series'}</p>
+                {sets.some(s => s.weight || s.reps) && (
+                  <p className="text-xs">
+                    {sets.filter(s => s.weight || s.reps).map((s, idx) => 
+                      `${s.weight || '-'}kg × ${s.reps || '-'}`
+                    ).join(', ')}
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p>Sin series agregadas</p>
+            )}
+          </div>
+        </CardContent>
+      ) : (
       <CardContent className="space-y-4">
         {/* Series */}
         <div className="space-y-2">
@@ -261,10 +296,10 @@ export function ExerciseForm({
               </p>
               <Button
                 type="button"
-                variant="outline"
+                variant="default"
                 size="sm"
                 onClick={addSet}
-                className="h-7 sm:h-8 text-xs sm:text-sm w-full"
+                className="h-7 sm:h-8 text-xs sm:text-sm w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
               >
                 <Plus className="h-3 w-3 mr-1" />
                 <span className="hidden sm:inline">Agregar Serie</span>
@@ -515,10 +550,10 @@ export function ExerciseForm({
               })}
               <Button
                 type="button"
-                variant="outline"
+                variant="default"
                 size="sm"
                 onClick={addSet}
-                className="h-7 sm:h-8 text-xs sm:text-sm w-full"
+                className="h-7 sm:h-8 text-xs sm:text-sm w-full bg-primary text-primary-foreground hover:bg-primary/90 font-medium"
               >
                 <Plus className="h-3 w-3 mr-1" />
                 <span className="hidden sm:inline">Agregar Serie</span>
@@ -562,6 +597,7 @@ export function ExerciseForm({
           )}
         </div>
       </CardContent>
+      )}
     </Card>
   );
 }
