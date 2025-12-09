@@ -364,7 +364,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
       }
 
       // Parsear muscle_groups_json si viene como string
-      let parsedData = result.data;
+      const parsedData = result.data;
       if (parsedData.muscle_groups_json && typeof parsedData.muscle_groups_json === 'string') {
         try {
           parsedData.muscle_groups_json = JSON.parse(parsedData.muscle_groups_json);

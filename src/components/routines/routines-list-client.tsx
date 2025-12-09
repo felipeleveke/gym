@@ -120,7 +120,7 @@ export function RoutinesListClient() {
             No tienes rutinas guardadas aún.
           </p>
           <p className="text-sm text-muted-foreground mb-4">
-            Puedes crear una rutina desde un entrenamiento guardado usando el botón "Establecer como rutina".
+            Puedes crear una rutina desde un entrenamiento guardado usando el botón &quot;Establecer como rutina&quot;.
           </p>
         </CardContent>
       </Card>

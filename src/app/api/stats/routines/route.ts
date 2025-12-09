@@ -195,7 +195,7 @@ export async function GET(request: NextRequest) {
             });
         });
 
-        let exercisesMap: Record<string, string> = {};
+        const exercisesMap: Record<string, string> = {};
         if (exerciseIds.size > 0) {
             const { data: exercises } = await supabase
                 .from('exercises')

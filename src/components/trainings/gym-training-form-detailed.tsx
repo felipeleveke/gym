@@ -1077,18 +1077,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
 
             {/* Ejercicios */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">Ejercicios</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowExerciseSelector(true)}
-                  disabled={isSubmitting}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Agregar Ejercicio
-                </Button>
-              </div>
+              <Label className="text-base font-semibold">Ejercicios</Label>
 
               {exercises.length === 0 ? (
                 <div className="border-2 border-dashed rounded-lg p-8 text-center">
@@ -1143,6 +1132,16 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                       />
                     </div>
                   ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowExerciseSelector(true)}
+                    disabled={isSubmitting}
+                    className="w-full"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Agregar Ejercicio
+                  </Button>
                 </div>
               )}
             </div>

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GripVertical, Trash2, Plus, X, Loader2, Info } from 'lucide-react';
+import { GripVertical, Trash2, Plus, X, Loader2, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { SetTimer } from './set-timer';
 import { EditableMarkdown } from '@/components/ui/editable-markdown';
@@ -110,6 +110,14 @@ export function ExerciseForm({
   const [restingSetId, setRestingSetId] = useState<string | null>(null);
   const [completedSetIds, setCompletedSetIds] = useState<Set<string>>(new Set());
   const [collapsedSetIds, setCollapsedSetIds] = useState<Set<string>>(new Set());
+  const [notesExpanded, setNotesExpanded] = useState(false);
+
+  // Expandir notas automáticamente si tienen contenido o se está generando resumen
+  useEffect(() => {
+    if ((notes && notes.trim().length > 0) || isGeneratingSummary) {
+      setNotesExpanded(true);
+    }
+  }, [notes, isGeneratingSummary]);
 
   // Efecto para completar serie cuando se solicita desde el modal
   useEffect(() => {
@@ -522,8 +530,17 @@ export function ExerciseForm({
 
         {/* Notas del ejercicio */}
         <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <Label htmlFor={`exercise-notes-${exercise.id}`} className="text-sm sm:text-base">
+          <button
+            type="button"
+            onClick={() => setNotesExpanded(!notesExpanded)}
+            className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
+          >
+            {notesExpanded ? (
+              <ChevronUp className="h-4 w-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            )}
+            <Label htmlFor={`exercise-notes-${exercise.id}`} className="text-sm sm:text-base cursor-pointer">
               Notas del ejercicio
             </Label>
             {isGeneratingSummary && (
@@ -532,15 +549,17 @@ export function ExerciseForm({
                 <span>Generando resumen...</span>
               </div>
             )}
-          </div>
-          <EditableMarkdown
-            content={notes || ''}
-            onChange={onUpdateNotes}
-            placeholder={isGeneratingSummary ? "Generando resumen automático..." : "Notas sobre este ejercicio..."}
-            disabled={isGeneratingSummary}
-            isGenerating={isGeneratingSummary}
-            rows={2}
-          />
+          </button>
+          {notesExpanded && (
+            <EditableMarkdown
+              content={notes || ''}
+              onChange={onUpdateNotes}
+              placeholder={isGeneratingSummary ? "Generando resumen automático..." : "Notas sobre este ejercicio..."}
+              disabled={isGeneratingSummary}
+              isGenerating={isGeneratingSummary}
+              rows={2}
+            />
+          )}
         </div>
       </CardContent>
     </Card>
