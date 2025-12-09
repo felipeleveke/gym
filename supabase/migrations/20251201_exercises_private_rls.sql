@@ -47,3 +47,6 @@ CREATE INDEX idx_exercises_created_by ON public.exercises(created_by);
 
 
 
+
+
+

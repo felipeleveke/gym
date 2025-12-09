@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils';
 import { ExerciseSelector } from './exercise-selector';
 import { ExerciseForm } from './exercise-form';
 import { EditableMarkdown } from '@/components/ui/editable-markdown';
+import { ActiveExerciseModal } from './active-exercise-modal';
 
 interface Exercise {
   id: string;
@@ -224,6 +225,10 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   const [globalActiveSetId, setGlobalActiveSetId] = useState<string | null>(null);
   // Estado global para coordinar qué serie está en descanso
   const [globalRestingSetId, setGlobalRestingSetId] = useState<string | null>(null);
+  // Estado para rastrear el tiempo de ejercicio de la serie activa
+  const [activeSetExerciseTime, setActiveSetExerciseTime] = useState<number>(0);
+  // Estado para rastrear qué series deben completarse desde el modal
+  const [setToCompleteFromModal, setSetToCompleteFromModal] = useState<string | null>(null);
   
   // Estados para indicadores de carga de resúmenes
   const [generatingExerciseSummaries, setGeneratingExerciseSummaries] = useState<Set<number>>(new Set());
@@ -238,6 +243,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   // Callback para cuando se detiene una serie globalmente
   const handleGlobalSetStop = () => {
     setGlobalActiveSetId(null);
+    setActiveSetExerciseTime(0);
   };
   
   // Callback para cuando una serie entra en descanso
@@ -250,6 +256,76 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   const handleGlobalSetComplete = () => {
     setGlobalActiveSetId(null);
     setGlobalRestingSetId(null);
+  };
+  
+  // Callback para actualizar el tiempo de ejercicio de la serie activa
+  const handleActiveSetExerciseTimeUpdate = (seconds: number) => {
+    if (globalActiveSetId) {
+      setActiveSetExerciseTime(seconds);
+    }
+  };
+
+  // Encontrar el ejercicio y serie activos
+  const activeExerciseData = useMemo(() => {
+    if (!globalActiveSetId) return null;
+    
+    for (const exercise of exercises) {
+      const activeSet = exercise.sets.find(set => set.id === globalActiveSetId);
+      if (activeSet) {
+        return {
+          exercise: exercise.exercise,
+          set: activeSet,
+        };
+      }
+    }
+    return null;
+  }, [exercises, globalActiveSetId]);
+
+  // Función para actualizar un set específico
+  const handleUpdateActiveSet = (setId: string, field: keyof ExerciseSet, value: any) => {
+    const updatedExercises = exercises.map(ex => {
+      const updatedSets = ex.sets.map(set => 
+        set.id === setId ? { ...set, [field]: value === '' ? null : value } : set
+      );
+      return { ...ex, sets: updatedSets };
+    });
+    setExercises(updatedExercises);
+  };
+
+  // Función para detener el ejercicio activo
+  const handleStopActiveExercise = () => {
+    if (!globalActiveSetId) return;
+    
+    // Encontrar el ejercicio que contiene la serie activa
+    for (let i = 0; i < exercises.length; i++) {
+      const exercise = exercises[i];
+      const setIndex = exercise.sets.findIndex(set => set.id === globalActiveSetId);
+      if (setIndex !== -1) {
+        // Actualizar el tiempo de ejercicio
+        handleUpdateActiveSet(globalActiveSetId, 'duration', activeSetExerciseTime);
+        
+        // Marcar la serie para que se complete y colapse
+        setSetToCompleteFromModal(globalActiveSetId);
+        
+        // Siempre iniciar descanso cuando se detiene desde el modal
+        // El entrenamiento solo se completa cuando se presiona el botón "Terminar entrenamiento" 
+        // en el SetTimer de la última serie
+        handleGlobalSetRest(globalActiveSetId);
+        
+        // Resetear el tiempo de ejercicio activo
+        setActiveSetExerciseTime(0);
+        break;
+      }
+    }
+  };
+
+  // Función para marcar una serie como completada desde el modal
+  const handleSetCompleteFromModal = (setId: string) => {
+    // Esta función será llamada desde ExerciseForm cuando se complete una serie
+    // Limpiar el estado después de procesar
+    if (setToCompleteFromModal === setId) {
+      setSetToCompleteFromModal(null);
+    }
   };
 
   // Calcular duración automáticamente cuando hay start_time y end_time
@@ -701,6 +777,12 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
       return;
     }
 
+    // Marcar hora de término si no está marcada
+    if (!trainingEndTime) {
+      const now = new Date().toISOString();
+      setTrainingEndTime(now);
+    }
+
     setIsSubmitting(true);
     try {
       // Generar todos los resúmenes antes de guardar
@@ -1043,6 +1125,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                         onGlobalSetComplete={handleGlobalSetComplete}
                         onUpdateSets={(sets) => handleUpdateExerciseSets(index, sets)}
                         onUpdateNotes={(notes) => handleUpdateExerciseNotes(index, notes)}
+                        onActiveSetExerciseTimeUpdate={handleActiveSetExerciseTimeUpdate}
+                        onSetCompleteFromModal={handleSetCompleteFromModal}
+                        setToCompleteFromModal={setToCompleteFromModal}
                         onRemove={() => handleRemoveExercise(index)}
                         onMoveUp={index > 0 ? () => handleMoveExercise(index, 'up') : undefined}
                         onMoveDown={
@@ -1053,15 +1138,6 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                         canMoveUp={index > 0}
                         canMoveDown={index < exercises.length - 1}
                         onFirstExerciseStart={index === 0 ? handleFirstExerciseStart : undefined}
-                        onTrainingComplete={() => {
-                          // Marcar hora de término del entrenamiento
-                          const now = new Date().toISOString();
-                          setTrainingEndTime(now);
-                          toast({
-                            title: 'Entrenamiento completado',
-                            description: `Hora de término: ${new Date(now).toLocaleTimeString()}`,
-                          });
-                        }}
                         previousMarks={routineId ? routineHistory[trainingExercise.exercise.id] : undefined}
                         previousSetMarks={routineId ? routineSetHistory[trainingExercise.exercise.id] : undefined}
                       />
@@ -1131,6 +1207,16 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
         open={showDialog}
         onConfirm={confirmLeave}
         onCancel={cancelLeave}
+      />
+
+      {/* Modal de ejercicio activo */}
+      <ActiveExerciseModal
+        open={!!globalActiveSetId && !!activeExerciseData}
+        exercise={activeExerciseData?.exercise || null}
+        set={activeExerciseData?.set || null}
+        exerciseSeconds={activeSetExerciseTime}
+        onUpdateSet={handleUpdateActiveSet}
+        onStop={handleStopActiveExercise}
       />
     </>
   );

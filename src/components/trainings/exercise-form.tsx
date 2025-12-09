@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,6 +59,9 @@ interface ExerciseFormProps {
   canMoveDown: boolean;
   onTrainingComplete?: () => void;
   onFirstExerciseStart?: () => void;
+  onActiveSetExerciseTimeUpdate?: (seconds: number) => void;
+  onSetCompleteFromModal?: (setId: string) => void;
+  setToCompleteFromModal?: string | null;
   previousMarks?: {
     lastWeight?: number | null;
     lastReps?: number | null;
@@ -97,12 +100,24 @@ export function ExerciseForm({
   canMoveDown,
   onTrainingComplete,
   onFirstExerciseStart,
+  onActiveSetExerciseTimeUpdate,
+  onSetCompleteFromModal,
+  setToCompleteFromModal,
   previousMarks,
   previousSetMarks,
 }: ExerciseFormProps) {
   const [activeSetId, setActiveSetId] = useState<string | null>(null);
   const [restingSetId, setRestingSetId] = useState<string | null>(null);
   const [completedSetIds, setCompletedSetIds] = useState<Set<string>>(new Set());
+  const [collapsedSetIds, setCollapsedSetIds] = useState<Set<string>>(new Set());
+
+  // Efecto para completar serie cuando se solicita desde el modal
+  useEffect(() => {
+    if (setToCompleteFromModal && !completedSetIds.has(setToCompleteFromModal)) {
+      handleSetComplete(setToCompleteFromModal);
+      onSetCompleteFromModal?.(setToCompleteFromModal);
+    }
+  }, [setToCompleteFromModal, completedSetIds]);
   const addSet = () => {
     const newSet: ExerciseSet = {
       id: `temp-${Date.now()}-${sets.length}`,
@@ -155,14 +170,17 @@ export function ExerciseForm({
 
   const handleSetComplete = (setId: string) => {
     setCompletedSetIds((prev) => new Set(prev).add(setId));
+    setCollapsedSetIds((prev) => new Set(prev).add(setId));
     setActiveSetId(null);
     setRestingSetId(null);
     // Notificar al componente padre que se completa la serie
     onGlobalSetComplete?.();
-    if (isLastExercise) {
-      // Es la última serie del último ejercicio, terminar entrenamiento
-      onTrainingComplete?.();
-    }
+    // Ya no marcamos el entrenamiento como completado aquí, se marca al guardar
+  };
+
+  // Función para manejar cuando se completa una serie desde el modal
+  const handleSetCompleteFromModal = (setId: string) => {
+    handleSetComplete(setId);
   };
 
   return (
@@ -254,9 +272,35 @@ export function ExerciseForm({
                   setHistory.lastReps !== null || 
                   setHistory.lastRir !== null
                 );
+                const isCollapsed = collapsedSetIds.has(set.id);
                 
                 return (
                 <TooltipProvider key={set.id}>
+                  {isCollapsed ? (
+                    // Versión colapsada - solo muestra resumen
+                    <div className="p-2 border rounded-md bg-muted/30">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="text-xs sm:text-sm font-medium text-muted-foreground shrink-0">
+                            Serie #{set.set_number}
+                          </span>
+                          <span className="text-xs sm:text-sm text-muted-foreground">
+                            {set.weight ? `${set.weight}kg` : '-'} × {set.reps || '-'} @ RIR {set.rir ?? '-'}
+                            {set.duration && ` (${Math.floor(set.duration / 60)}:${String(set.duration % 60).padStart(2, '0')})`}
+                          </span>
+                        </div>
+                        <Badge variant="outline" className="text-xs shrink-0">
+                          Completado
+                        </Badge>
+                      </div>
+                      {set.notes && (
+                        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                          {set.notes}
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    // Versión expandida - muestra todos los campos
                   <div
                     className="space-y-2 p-2 border rounded-md"
                   >
@@ -410,6 +454,10 @@ export function ExerciseForm({
                         }
                         onExerciseTimeUpdate={(seconds) => {
                           updateSet(set.id, 'duration', seconds);
+                          // Si esta serie está activa globalmente, notificar al componente principal
+                          if (globalActiveSetId === set.id && onActiveSetExerciseTimeUpdate) {
+                            onActiveSetExerciseTimeUpdate(seconds);
+                          }
                         }}
                         onRestTimeUpdate={(seconds) => {
                           updateSet(set.id, 'rest_time', seconds);
@@ -453,6 +501,7 @@ export function ExerciseForm({
                     />
                   </div>
                   </div>
+                  )}
                 </TooltipProvider>
               );
               })}

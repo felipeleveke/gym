@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -38,6 +38,7 @@ interface ExerciseSelectorProps {
 export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
   const [search, setSearch] = useState('');
   const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]); // Guardar todos los ejercicios para filtrado local
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newExerciseName, setNewExerciseName] = useState('');
@@ -52,22 +53,30 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
 
+  // Cargar todos los ejercicios al montar el componente
   useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (search.length >= 2 || search.length === 0) {
-        fetchExercises(search);
-      }
-    }, 300);
+    fetchExercises('');
+  }, []);
 
-    return () => clearTimeout(timeoutId);
-  }, [search]);
+  // El filtrado se hace localmente con useMemo, no necesita llamar a la API
+
+  // Filtrado local de ejercicios basado en el término de búsqueda
+  const filteredExercises = useMemo(() => {
+    if (!search.trim()) {
+      return allExercises;
+    }
+    
+    const searchLower = search.toLowerCase().trim();
+    return allExercises.filter((exercise) =>
+      exercise.name.toLowerCase().includes(searchLower)
+    );
+  }, [allExercises, search]);
 
   const fetchExercises = async (searchTerm: string = '') => {
     setLoading(true);
     try {
-      const url = searchTerm
-        ? `/api/exercises?search=${encodeURIComponent(searchTerm)}`
-        : '/api/exercises';
+      // Siempre cargar todos los ejercicios, el filtrado se hace localmente
+      const url = '/api/exercises';
       
       // Agregar timestamp para evitar caché
       const response = await fetch(`${url}?_=${Date.now()}`, {
@@ -95,6 +104,8 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
         return ex;
       });
       
+      // Guardar todos los ejercicios para filtrado local
+      setAllExercises(exercisesWithParsedJson);
       setExercises(exercisesWithParsedJson);
     } catch (error) {
       console.error('Error fetching exercises:', error);
@@ -231,7 +242,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
 
       // Luego refrescar desde el servidor para asegurar que tenemos los datos más recientes
       setTimeout(async () => {
-        await fetchExercises(search);
+        await fetchExercises('');
       }, 500);
       
       setEditingExercise(null);
@@ -283,7 +294,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
       }
 
       // Actualizar la lista de ejercicios
-      await fetchExercises(search);
+      await fetchExercises('');
       
       setDeletingExercise(null);
       setDeleteConfirmStep(0);
@@ -352,13 +363,26 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
         throw new Error(result.error || 'Error al crear ejercicio');
       }
 
-      onSelect(result.data);
+      // Parsear muscle_groups_json si viene como string
+      let parsedData = result.data;
+      if (parsedData.muscle_groups_json && typeof parsedData.muscle_groups_json === 'string') {
+        try {
+          parsedData.muscle_groups_json = JSON.parse(parsedData.muscle_groups_json);
+        } catch (e) {
+          console.error('Error parsing muscle_groups_json:', e);
+        }
+      }
+      
+      // Agregar el nuevo ejercicio a la lista local
+      setAllExercises(prev => [...prev, parsedData]);
+      
+      onSelect(parsedData);
       setNewExerciseName('');
       setSelectedMuscleGroups([]);
       setSearch(''); // Limpiar búsqueda para mostrar el nuevo ejercicio
       toast({
         title: 'Ejercicio creado',
-        description: `"${result.data.name}" ha sido agregado al catálogo.`,
+        description: `"${parsedData.name}" ha sido agregado al catálogo.`,
       });
     } catch (error) {
       console.error('Error creating exercise:', error);
@@ -393,7 +417,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
         </div>
 
         {/* Crear nuevo ejercicio */}
-        {search && exercises.length === 0 && !loading && (
+        {search && filteredExercises.length === 0 && !loading && (
           <div className="space-y-4 p-4 border rounded-md bg-muted/50">
             <div>
               <p className="text-sm font-medium mb-1">
@@ -455,12 +479,12 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : exercises.length === 0 && !search ? (
+          ) : filteredExercises.length === 0 && !search ? (
             <p className="text-sm text-muted-foreground text-center py-8">
               Escribe para buscar ejercicios...
             </p>
           ) : (
-            exercises.map((exercise) => (
+            filteredExercises.map((exercise) => (
               <div
                 key={exercise.id}
                 className="group flex items-center gap-2 p-3 rounded-md hover:bg-accent transition-colors"
