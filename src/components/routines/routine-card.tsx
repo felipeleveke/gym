@@ -3,7 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { BookOpen, Play, Trash2, Dumbbell } from 'lucide-react';
+import { BookOpen, Play, Trash2, Dumbbell, Pencil } from 'lucide-react';
 import { formatDateRelative } from '@/lib/utils';
 import {
   AlertDialog,
@@ -44,10 +44,11 @@ interface RoutineCardProps {
     routine_exercises?: RoutineExercise[];
   };
   onUse: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }
 
-export function RoutineCard({ routine, onUse, onDelete }: RoutineCardProps) {
+export function RoutineCard({ routine, onUse, onEdit, onDelete }: RoutineCardProps) {
   const exerciseCount = routine.routine_exercises?.length || 0;
   const sortedExercises = routine.routine_exercises
     ? [...routine.routine_exercises].sort((a, b) => a.order_index - b.order_index)
@@ -125,6 +126,15 @@ export function RoutineCard({ routine, onUse, onDelete }: RoutineCardProps) {
           >
             <Play className="h-4 w-4 mr-2" />
             Usar rutina
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEdit}
+            className="shrink-0"
+            title="Editar rutina"
+          >
+            <Pencil className="h-4 w-4" />
           </Button>
           <AlertDialog>
             <AlertDialogTrigger asChild>

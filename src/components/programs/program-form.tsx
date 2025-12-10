@@ -1,0 +1,605 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  Loader2, 
+  Plus, 
+  Trash2, 
+  ArrowUp, 
+  ArrowDown, 
+  Save, 
+  ArrowLeft,
+  Calendar,
+  Target
+} from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+
+interface RoutineVariant {
+  id: string;
+  variant_name: string;
+  intensity_level: number;
+  workout_routine?: {
+    id: string;
+    name: string;
+  };
+}
+
+interface BlockPhase {
+  id?: string;
+  week_number: number;
+  variant_id: string | null;
+  intensity_modifier: number;
+  volume_modifier: number;
+  notes?: string;
+}
+
+interface TrainingBlock {
+  id?: string;
+  name: string;
+  block_type: string;
+  order_index: number;
+  duration_weeks: number;
+  notes?: string;
+  phases: BlockPhase[];
+}
+
+const BLOCK_TYPES = [
+  { value: 'strength', label: 'Fuerza', description: 'Enfocado en aumentar la fuerza máxima' },
+  { value: 'hypertrophy', label: 'Hipertrofia', description: 'Enfocado en el crecimiento muscular' },
+  { value: 'power', label: 'Potencia', description: 'Enfocado en la explosividad' },
+  { value: 'endurance', label: 'Resistencia', description: 'Enfocado en la resistencia muscular' },
+  { value: 'deload', label: 'Descarga', description: 'Semana de recuperación activa' },
+  { value: 'peaking', label: 'Peaking', description: 'Preparación para máximos' },
+  { value: 'transition', label: 'Transición', description: 'Período entre ciclos' },
+];
+
+const programSchema = z.object({
+  name: z.string().min(1, 'El nombre es requerido'),
+  description: z.string().optional(),
+  goal: z.string().optional(),
+  start_date: z.string().optional(),
+});
+
+type ProgramFormData = z.infer<typeof programSchema>;
+
+export function ProgramForm() {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [blocks, setBlocks] = useState<TrainingBlock[]>([]);
+  const [availableVariants, setAvailableVariants] = useState<RoutineVariant[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loadingVariants, setLoadingVariants] = useState(true);
+
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<ProgramFormData>({
+    resolver: zodResolver(programSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      goal: '',
+      start_date: '',
+    },
+  });
+
+  // Fetch available routine variants
+  useEffect(() => {
+    const fetchVariants = async () => {
+      try {
+        // First get all routines
+        const routinesResponse = await fetch('/api/routines');
+        if (!routinesResponse.ok) throw new Error('Error fetching routines');
+        const { data: routines } = await routinesResponse.json();
+
+        // Then get variants for each routine
+        const allVariants: RoutineVariant[] = [];
+        for (const routine of routines || []) {
+          const variantsResponse = await fetch(`/api/routines/${routine.id}/variants`);
+          if (variantsResponse.ok) {
+            const { data: variants } = await variantsResponse.json();
+            if (variants && variants.length > 0) {
+              allVariants.push(...variants.map((v: any) => ({
+                ...v,
+                workout_routine: { id: routine.id, name: routine.name },
+              })));
+            }
+          }
+        }
+        setAvailableVariants(allVariants);
+      } catch (error) {
+        console.error('Error fetching variants:', error);
+      } finally {
+        setLoadingVariants(false);
+      }
+    };
+
+    fetchVariants();
+  }, []);
+
+  const handleAddBlock = () => {
+    const newBlock: TrainingBlock = {
+      name: `Bloque ${blocks.length + 1}`,
+      block_type: 'hypertrophy',
+      order_index: blocks.length,
+      duration_weeks: 4,
+      phases: [
+        { week_number: 1, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0 },
+        { week_number: 2, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0 },
+        { week_number: 3, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0 },
+        { week_number: 4, variant_id: null, intensity_modifier: 0.7, volume_modifier: 0.7 }, // Deload week
+      ],
+    };
+    setBlocks([...blocks, newBlock]);
+  };
+
+  const handleUpdateBlock = (index: number, updates: Partial<TrainingBlock>) => {
+    const newBlocks = [...blocks];
+    newBlocks[index] = { ...newBlocks[index], ...updates };
+    
+    // If duration changed, update phases
+    if (updates.duration_weeks !== undefined) {
+      const newDuration = updates.duration_weeks;
+      const currentPhases = newBlocks[index].phases;
+      
+      if (newDuration > currentPhases.length) {
+        // Add more phases
+        for (let i = currentPhases.length; i < newDuration; i++) {
+          currentPhases.push({
+            week_number: i + 1,
+            variant_id: null,
+            intensity_modifier: 1.0,
+            volume_modifier: 1.0,
+          });
+        }
+      } else if (newDuration < currentPhases.length) {
+        // Remove phases
+        currentPhases.splice(newDuration);
+      }
+      
+      newBlocks[index].phases = currentPhases;
+    }
+    
+    setBlocks(newBlocks);
+  };
+
+  const handleRemoveBlock = (index: number) => {
+    const newBlocks = blocks.filter((_, i) => i !== index);
+    newBlocks.forEach((block, i) => (block.order_index = i));
+    setBlocks(newBlocks);
+  };
+
+  const handleMoveBlock = (index: number, direction: 'up' | 'down') => {
+    const newBlocks = [...blocks];
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+
+    if (targetIndex >= 0 && targetIndex < newBlocks.length) {
+      [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
+      newBlocks.forEach((block, i) => (block.order_index = i));
+      setBlocks(newBlocks);
+    }
+  };
+
+  const handleUpdatePhase = (
+    blockIndex: number,
+    phaseIndex: number,
+    updates: Partial<BlockPhase>
+  ) => {
+    const newBlocks = [...blocks];
+    newBlocks[blockIndex].phases[phaseIndex] = {
+      ...newBlocks[blockIndex].phases[phaseIndex],
+      ...updates,
+    };
+    setBlocks(newBlocks);
+  };
+
+  const getBlockTypeInfo = (type: string) => {
+    return BLOCK_TYPES.find((t) => t.value === type) || BLOCK_TYPES[1];
+  };
+
+  const getTotalWeeks = () => {
+    return blocks.reduce((sum, block) => sum + block.duration_weeks, 0);
+  };
+
+  const onSubmit = async (data: ProgramFormData) => {
+    if (blocks.length === 0) {
+      toast({
+        title: 'Error',
+        description: 'Debes agregar al menos un bloque de entrenamiento',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const programData = {
+        name: data.name,
+        description: data.description,
+        goal: data.goal,
+        start_date: data.start_date || null,
+        end_date: data.start_date
+          ? new Date(
+              new Date(data.start_date).getTime() + getTotalWeeks() * 7 * 24 * 60 * 60 * 1000
+            ).toISOString().split('T')[0]
+          : null,
+        blocks: blocks.map((block, index) => ({
+          name: block.name,
+          block_type: block.block_type,
+          order_index: index,
+          duration_weeks: block.duration_weeks,
+          notes: block.notes,
+          phases: block.phases.map((phase) => ({
+            week_number: phase.week_number,
+            variant_id: phase.variant_id,
+            intensity_modifier: phase.intensity_modifier,
+            volume_modifier: phase.volume_modifier,
+            notes: phase.notes,
+          })),
+        })),
+      };
+
+      const response = await fetch('/api/programs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(programData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Error al crear el programa');
+      }
+
+      toast({
+        title: 'Programa creado',
+        description: `El programa "${data.name}" con ${blocks.length} bloque(s) se ha creado exitosamente.`,
+      });
+
+      router.push('/programs');
+      router.refresh();
+    } catch (error) {
+      console.error('Error creating program:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'No se pudo crear el programa',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-w-4xl mx-auto">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">Crear Programa de Entrenamiento</h1>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Información del Programa</CardTitle>
+            <CardDescription>
+              Define el macrociclo completo de tu periodización
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="name">Nombre del Programa</Label>
+                <Input
+                  id="name"
+                  placeholder="Ej: Programa de Fuerza 12 Semanas"
+                  {...register('name')}
+                />
+                {errors.name && (
+                  <p className="text-sm text-destructive">{errors.name.message}</p>
+                )}
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="goal">Objetivo Principal</Label>
+                <Input
+                  id="goal"
+                  placeholder="Ej: Aumentar fuerza en los básicos"
+                  {...register('goal')}
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="start_date">Fecha de Inicio</Label>
+                <Input
+                  id="start_date"
+                  type="date"
+                  {...register('start_date')}
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label>Duración Total</Label>
+                <div className="flex items-center gap-2 h-10">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-lg font-semibold">
+                    {getTotalWeeks()} semanas
+                  </span>
+                  <span className="text-muted-foreground">
+                    ({blocks.length} bloque{blocks.length !== 1 && 's'})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">Descripción (Opcional)</Label>
+              <Textarea
+                id="description"
+                placeholder="Describe los objetivos y características del programa..."
+                {...register('description')}
+              />
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Bloques de Entrenamiento (Mesociclos)</CardTitle>
+                <CardDescription>
+                  Cada bloque representa una fase con un objetivo específico
+                </CardDescription>
+              </div>
+              <Button type="button" variant="outline" onClick={handleAddBlock}>
+                <Plus className="mr-2 h-4 w-4" />
+                Agregar Bloque
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {blocks.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed rounded-lg text-muted-foreground">
+                <p>No hay bloques definidos.</p>
+                <Button type="button" variant="link" onClick={handleAddBlock}>
+                  Agregar el primer bloque
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {blocks.map((block, blockIndex) => {
+                  const typeInfo = getBlockTypeInfo(block.block_type);
+                  return (
+                    <Card key={block.id || `block-${blockIndex}`} className="border-2">
+                      <CardHeader className="pb-3">
+                        <div className="flex items-start gap-3">
+                          <div className="flex flex-col gap-1">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={blockIndex === 0}
+                              onClick={() => handleMoveBlock(blockIndex, 'up')}
+                              className="h-6 w-6"
+                            >
+                              <ArrowUp className="h-3 w-3" />
+                            </Button>
+                            <span className="text-xs text-center text-muted-foreground font-mono">
+                              {blockIndex + 1}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              disabled={blockIndex === blocks.length - 1}
+                              onClick={() => handleMoveBlock(blockIndex, 'down')}
+                              className="h-6 w-6"
+                            >
+                              <ArrowDown className="h-3 w-3" />
+                            </Button>
+                          </div>
+
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-4 flex-wrap">
+                              <Input
+                                value={block.name}
+                                onChange={(e) =>
+                                  handleUpdateBlock(blockIndex, { name: e.target.value })
+                                }
+                                placeholder="Nombre del bloque"
+                                className="max-w-[200px]"
+                              />
+
+                              <Select
+                                value={block.block_type}
+                                onValueChange={(v) =>
+                                  handleUpdateBlock(blockIndex, { block_type: v })
+                                }
+                              >
+                                <SelectTrigger className="w-[180px]">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {BLOCK_TYPES.map((type) => (
+                                    <SelectItem key={type.value} value={type.value}>
+                                      {type.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+
+                              <div className="flex items-center gap-2">
+                                <Label className="text-sm">Semanas:</Label>
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="12"
+                                  value={block.duration_weeks}
+                                  onChange={(e) =>
+                                    handleUpdateBlock(blockIndex, {
+                                      duration_weeks: parseInt(e.target.value) || 1,
+                                    })
+                                  }
+                                  className="w-20"
+                                />
+                              </div>
+                            </div>
+
+                            <p className="text-sm text-muted-foreground">
+                              {typeInfo.description}
+                            </p>
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:bg-destructive/10"
+                            onClick={() => handleRemoveBlock(blockIndex)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardHeader>
+
+                      <CardContent>
+                        <div className="space-y-2">
+                          <Label className="text-sm">Fases semanales (Microciclos)</Label>
+                          <div className="grid gap-2">
+                            {block.phases.map((phase, phaseIndex) => (
+                              <div
+                                key={phase.id || `phase-${phaseIndex}`}
+                                className="flex items-center gap-3 p-2 bg-muted/50 rounded-md"
+                              >
+                                <span className="text-sm font-medium w-24">
+                                  Semana {phase.week_number}
+                                </span>
+
+                                <Select
+                                  value={phase.variant_id || ''}
+                                  onValueChange={(v) =>
+                                    handleUpdatePhase(blockIndex, phaseIndex, {
+                                      variant_id: v || null,
+                                    })
+                                  }
+                                >
+                                  <SelectTrigger className="flex-1">
+                                    <SelectValue placeholder="Seleccionar variante..." />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {loadingVariants ? (
+                                      <SelectItem value="loading" disabled>
+                                        Cargando variantes...
+                                      </SelectItem>
+                                    ) : availableVariants.length === 0 ? (
+                                      <SelectItem value="empty" disabled>
+                                        No hay variantes disponibles
+                                      </SelectItem>
+                                    ) : (
+                                      availableVariants.map((variant) => (
+                                        <SelectItem key={variant.id} value={variant.id}>
+                                          {variant.workout_routine?.name} - {variant.variant_name}
+                                          (Intensidad: {variant.intensity_level})
+                                        </SelectItem>
+                                      ))
+                                    )}
+                                  </SelectContent>
+                                </Select>
+
+                                <div className="flex items-center gap-1">
+                                  <Label className="text-xs">Int:</Label>
+                                  <Input
+                                    type="number"
+                                    min="0.1"
+                                    max="1.5"
+                                    step="0.1"
+                                    value={phase.intensity_modifier}
+                                    onChange={(e) =>
+                                      handleUpdatePhase(blockIndex, phaseIndex, {
+                                        intensity_modifier: parseFloat(e.target.value) || 1,
+                                      })
+                                    }
+                                    className="w-16 text-center"
+                                  />
+                                </div>
+
+                                <div className="flex items-center gap-1">
+                                  <Label className="text-xs">Vol:</Label>
+                                  <Input
+                                    type="number"
+                                    min="0.1"
+                                    max="1.5"
+                                    step="0.1"
+                                    value={phase.volume_modifier}
+                                    onChange={(e) =>
+                                      handleUpdatePhase(blockIndex, phaseIndex, {
+                                        volume_modifier: parseFloat(e.target.value) || 1,
+                                      })
+                                    }
+                                    className="w-16 text-center"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="flex justify-end gap-4">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => router.back()}
+            disabled={isSubmitting}
+          >
+            Cancelar
+          </Button>
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Guardando...
+              </>
+            ) : (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Guardar Programa
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}

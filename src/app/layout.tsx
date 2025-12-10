@@ -12,17 +12,18 @@ export const metadata: Metadata = {
   title: 'Gym Training Tracker',
   description: 'Sistema de seguimiento de entrenamientos en gimnasio y deportes',
   manifest: '/manifest.json',
-  themeColor: '#ffffff',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
     title: 'Gym Tracker',
   },
+};
+
+export const viewport = {
+  themeColor: '#ffffff',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 };
 
 export default function RootLayout({

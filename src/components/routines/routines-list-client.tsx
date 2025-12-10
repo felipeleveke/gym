@@ -73,6 +73,10 @@ export function RoutinesListClient() {
     router.push(`/trainings/new?routineId=${routineId}`);
   };
 
+  const handleEditRoutine = (routineId: string) => {
+    router.push(`/routines/${routineId}/edit`);
+  };
+
   const handleDeleteRoutine = async (routineId: string) => {
     if (!confirm('¿Estás seguro de que quieres eliminar esta rutina?')) {
       return;
@@ -135,6 +139,7 @@ export function RoutinesListClient() {
             key={routine.id}
             routine={routine}
             onUse={() => handleUseRoutine(routine.id)}
+            onEdit={() => handleEditRoutine(routine.id)}
             onDelete={() => handleDeleteRoutine(routine.id)}
           />
         ))}
