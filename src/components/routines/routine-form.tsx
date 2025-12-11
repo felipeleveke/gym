@@ -321,7 +321,7 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
             target_reps: ex.default_reps || 10,
             target_rir: 2,
             target_weight_percent: null,
-            target_weight: ex.default_weight,
+            target_weight: ex.default_weight ?? null,
             set_type: 'working' as const,
           })),
         })),

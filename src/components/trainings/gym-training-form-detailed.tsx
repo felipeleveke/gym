@@ -39,6 +39,8 @@ interface ExerciseSet {
   rir?: number | null;
   notes?: string | null;
   set_type?: 'warmup' | 'approach' | 'working' | 'bilbo' | null;
+  theoretical_one_rm?: number | null;
+  percentage_one_rm?: number | null;
 }
 
 interface TrainingExercise {
