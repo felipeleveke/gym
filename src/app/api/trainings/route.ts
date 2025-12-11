@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
           start_time: startTimeValue,
           end_time: endTimeValue,
           routine_id: trainingInfo.routine_id || null,
+          phase_routine_id: trainingInfo.phase_routine_id || null,
           notes: trainingInfo.notes || null,
           tags: trainingInfo.tags || null,
         })

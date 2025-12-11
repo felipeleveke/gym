@@ -60,15 +60,17 @@ interface GymTrainingFormDetailedProps {
   initialData?: any;
   trainingId?: string;
   routineId?: string;
+  variantId?: string;       // For loading from a specific variant
+  phaseRoutineId?: string;  // For linking to program schedule
 }
 
-export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routineId }: GymTrainingFormDetailedProps) {
+export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routineId, variantId, phaseRoutineId }: GymTrainingFormDetailedProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
-  const [loadingRoutine, setLoadingRoutine] = useState(!!routineId);
+  const [loadingRoutine, setLoadingRoutine] = useState(!!routineId || !!variantId);
   const [routineHistory, setRoutineHistory] = useState<Record<string, {
     lastWeight?: number | null;
     lastReps?: number | null;
@@ -114,9 +116,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
     return [];
   });
 
-  // Cargar rutina si hay routineId
+  // Cargar rutina si hay routineId (solo si NO hay variantId, porque loadVariant lo manejará)
   useEffect(() => {
-    if (!routineId) return;
+    if (!routineId || variantId) return; // Si hay variantId, dejar que loadVariant lo maneje
 
     const loadRoutine = async () => {
       try {
@@ -213,6 +215,79 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
 
     loadRoutine();
   }, [routineId, toast]);
+
+  // Cargar variante si hay variantId (desde programa)
+  useEffect(() => {
+    if (!variantId || !routineId) return;
+
+    const loadVariant = async () => {
+      try {
+        const response = await fetch(`/api/routines/${routineId}/variants`);
+        if (!response.ok) throw new Error('Error al cargar variantes');
+        
+        const { data: variants } = await response.json();
+        const variant = variants.find((v: any) => v.id === variantId);
+        
+        if (!variant) {
+          throw new Error('Variante no encontrada');
+        }
+
+        // Pre-poblar ejercicios desde la variante
+        if (variant.variant_exercises && Array.isArray(variant.variant_exercises)) {
+          const variantExercises: TrainingExercise[] = variant.variant_exercises
+            .sort((a: any, b: any) => a.order_index - b.order_index)
+            .map((ve: any) => {
+              const sets = (ve.variant_exercise_sets || [])
+                .sort((a: any, b: any) => a.set_number - b.set_number)
+                .map((set: any) => ({
+                  id: `temp-${Date.now()}-${ve.order_index}-${set.set_number}`,
+                  set_number: set.set_number,
+                  weight: set.target_weight || null, // Pre-fill target weight
+                  reps: null, // User fills actual reps
+                  rir: set.target_rir !== undefined ? set.target_rir : null,
+                  set_type: set.set_type || 'working',
+                  notes: set.notes || null,
+                }));
+
+              return {
+                exercise: ve.exercise || {
+                  id: ve.exercise_id,
+                  name: 'Ejercicio desconocido',
+                },
+                sets: sets.length > 0 ? sets : [{
+                  id: `temp-${Date.now()}-${ve.order_index}-1`,
+                  set_number: 1,
+                  weight: null,
+                  reps: null,
+                  set_type: 'working' as const,
+                }],
+                notes: ve.notes || '',
+                start_time: null,
+                end_time: null,
+              };
+            });
+
+          setExercises(variantExercises);
+        }
+
+        toast({
+          title: 'Rutina cargada',
+          description: `Se han cargado ${variant.variant_exercises?.length || 0} ejercicios desde el programa.`,
+        });
+      } catch (error) {
+        console.error('Error cargando variante:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudo cargar la variante',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingRoutine(false);
+      }
+    };
+
+    loadVariant();
+  }, [variantId, routineId, toast]);
   
   // Pre-poblar tiempos del entrenamiento
   const [trainingStartTime, setTrainingStartTime] = useState<string | null>(initialData?.start_time || null);
@@ -859,6 +934,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
           start_time: trainingStartTime,
           end_time: trainingEndTime,
           routine_id: routineId || null, // Guardar referencia a la rutina si existe
+          phase_routine_id: phaseRoutineId || null, // Vincular con rutina programada
           notes: watch('notes') || null,
           tags: tagsArray.length > 0 ? tagsArray : null,
           exercises: finalExercises.filter((ex) => ex.sets.length > 0).map((ex, index) => ({

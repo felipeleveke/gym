@@ -41,13 +41,21 @@ interface RoutineVariant {
   };
 }
 
+interface PhaseRoutine {
+  id?: string;
+  routine_variant_id: string;
+  scheduled_at: string; // ISO datetime string
+  notes?: string;
+}
+
 interface BlockPhase {
   id?: string;
   week_number: number;
-  variant_id: string | null;
+  variant_id: string | null; // Deprecated, kept for backward compat
   intensity_modifier: number;
   volume_modifier: number;
   notes?: string;
+  routines: PhaseRoutine[]; // New: array of scheduled routines
 }
 
 interface TrainingBlock {
@@ -58,6 +66,7 @@ interface TrainingBlock {
   duration_weeks: number;
   notes?: string;
   phases: BlockPhase[];
+
 }
 
 const BLOCK_TYPES = [
@@ -142,10 +151,10 @@ export function ProgramForm() {
       order_index: blocks.length,
       duration_weeks: 4,
       phases: [
-        { week_number: 1, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0 },
-        { week_number: 2, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0 },
-        { week_number: 3, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0 },
-        { week_number: 4, variant_id: null, intensity_modifier: 0.7, volume_modifier: 0.7 }, // Deload week
+        { week_number: 1, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0, routines: [] },
+        { week_number: 2, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0, routines: [] },
+        { week_number: 3, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0, routines: [] },
+        { week_number: 4, variant_id: null, intensity_modifier: 0.7, volume_modifier: 0.7, routines: [] }, // Deload week
       ],
     };
     setBlocks([...blocks, newBlock]);
@@ -168,6 +177,7 @@ export function ProgramForm() {
             variant_id: null,
             intensity_modifier: 1.0,
             volume_modifier: 1.0,
+            routines: [],
           });
         }
       } else if (newDuration < currentPhases.length) {
@@ -210,6 +220,38 @@ export function ProgramForm() {
     };
     setBlocks(newBlocks);
   };
+
+  const handleAddPhaseRoutine = (blockIndex: number, phaseIndex: number) => {
+    const newBlocks = [...blocks];
+    const phase = newBlocks[blockIndex].phases[phaseIndex];
+    phase.routines.push({
+      routine_variant_id: '',
+      scheduled_at: '',
+      notes: '',
+    });
+    setBlocks(newBlocks);
+  };
+
+  const handleUpdatePhaseRoutine = (
+    blockIndex: number,
+    phaseIndex: number,
+    routineIndex: number,
+    updates: Partial<PhaseRoutine>
+  ) => {
+    const newBlocks = [...blocks];
+    newBlocks[blockIndex].phases[phaseIndex].routines[routineIndex] = {
+      ...newBlocks[blockIndex].phases[phaseIndex].routines[routineIndex],
+      ...updates,
+    };
+    setBlocks(newBlocks);
+  };
+
+  const handleRemovePhaseRoutine = (blockIndex: number, phaseIndex: number, routineIndex: number) => {
+    const newBlocks = [...blocks];
+    newBlocks[blockIndex].phases[phaseIndex].routines.splice(routineIndex, 1);
+    setBlocks(newBlocks);
+  };
+
 
   const getBlockTypeInfo = (type: string) => {
     return BLOCK_TYPES.find((t) => t.value === type) || BLOCK_TYPES[1];
@@ -254,6 +296,7 @@ export function ProgramForm() {
             intensity_modifier: phase.intensity_modifier,
             volume_modifier: phase.volume_modifier,
             notes: phase.notes,
+            routines: phase.routines.filter(r => r.routine_variant_id && r.scheduled_at), // Only include valid routines
           })),
         })),
       };
@@ -495,42 +538,82 @@ export function ProgramForm() {
                                 key={phase.id || `phase-${phaseIndex}`}
                                 className="flex items-center gap-3 p-2 bg-muted/50 rounded-md"
                               >
-                                <span className="text-sm font-medium w-24">
+                                <span className="text-sm font-medium w-20 flex-shrink-0">
                                   Semana {phase.week_number}
                                 </span>
 
-                                <Select
-                                  value={phase.variant_id || ''}
-                                  onValueChange={(v) =>
-                                    handleUpdatePhase(blockIndex, phaseIndex, {
-                                      variant_id: v || null,
-                                    })
-                                  }
-                                >
-                                  <SelectTrigger className="flex-1">
-                                    <SelectValue placeholder="Seleccionar variante..." />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {loadingVariants ? (
-                                      <SelectItem value="loading" disabled>
-                                        Cargando variantes...
-                                      </SelectItem>
-                                    ) : availableVariants.length === 0 ? (
-                                      <SelectItem value="empty" disabled>
-                                        No hay variantes disponibles
-                                      </SelectItem>
-                                    ) : (
-                                      availableVariants.map((variant) => (
-                                        <SelectItem key={variant.id} value={variant.id}>
-                                          {variant.workout_routine?.name} - {variant.variant_name}
-                                          (Intensidad: {variant.intensity_level})
-                                        </SelectItem>
-                                      ))
-                                    )}
-                                  </SelectContent>
-                                </Select>
+                                <div className="flex-1 space-y-2">
+                                  {phase.routines.length === 0 ? (
+                                    <p className="text-xs text-muted-foreground italic">Sin rutinas programadas</p>
+                                  ) : (
+                                    phase.routines.map((routine, routineIndex) => (
+                                      <div key={routineIndex} className="flex items-center gap-2 p-2 bg-background rounded border">
+                                        <Select
+                                          value={routine.routine_variant_id || ''}
+                                          onValueChange={(v) =>
+                                            handleUpdatePhaseRoutine(blockIndex, phaseIndex, routineIndex, {
+                                              routine_variant_id: v || '',
+                                            })
+                                          }
+                                        >
+                                          <SelectTrigger className="flex-1 min-w-[180px]">
+                                            <SelectValue placeholder="Seleccionar rutina..." />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            {loadingVariants ? (
+                                              <SelectItem value="loading" disabled>
+                                                Cargando...
+                                              </SelectItem>
+                                            ) : availableVariants.length === 0 ? (
+                                              <SelectItem value="empty" disabled>
+                                                No hay variantes
+                                              </SelectItem>
+                                            ) : (
+                                              availableVariants.map((variant) => (
+                                                <SelectItem key={variant.id} value={variant.id}>
+                                                  {variant.workout_routine?.name} - {variant.variant_name}
+                                                </SelectItem>
+                                              ))
+                                            )}
+                                          </SelectContent>
+                                        </Select>
 
-                                <div className="flex items-center gap-1">
+                                        <Input
+                                          type="datetime-local"
+                                          value={routine.scheduled_at}
+                                          onChange={(e) =>
+                                            handleUpdatePhaseRoutine(blockIndex, phaseIndex, routineIndex, {
+                                              scheduled_at: e.target.value,
+                                            })
+                                          }
+                                          className="w-[200px]"
+                                        />
+
+                                        <Button
+                                          type="button"
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                          onClick={() => handleRemovePhaseRoutine(blockIndex, phaseIndex, routineIndex)}
+                                        >
+                                          <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                      </div>
+                                    ))
+                                  )}
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() => handleAddPhaseRoutine(blockIndex, phaseIndex)}
+                                  >
+                                    <Plus className="mr-1 h-3 w-3" />
+                                    Agregar Rutina
+                                  </Button>
+                                </div>
+
+                                <div className="flex items-center gap-1 flex-shrink-0">
                                   <Label className="text-xs">Int:</Label>
                                   <Input
                                     type="number"
@@ -543,11 +626,11 @@ export function ProgramForm() {
                                         intensity_modifier: parseFloat(e.target.value) || 1,
                                       })
                                     }
-                                    className="w-16 text-center"
+                                    className="w-14 text-center"
                                   />
                                 </div>
 
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1 flex-shrink-0">
                                   <Label className="text-xs">Vol:</Label>
                                   <Input
                                     type="number"
@@ -560,7 +643,7 @@ export function ProgramForm() {
                                         volume_modifier: parseFloat(e.target.value) || 1,
                                       })
                                     }
-                                    className="w-16 text-center"
+                                    className="w-14 text-center"
                                   />
                                 </div>
                               </div>

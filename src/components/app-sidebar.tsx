@@ -13,6 +13,7 @@ import {
   BarChart3,
   User,
   Settings,
+  SquareStack,
 } from "lucide-react"
 import Image from "next/image"
 
@@ -43,14 +44,19 @@ const menuItems = [
     icon: Dumbbell,
   },
   {
-    title: "Ejercicios",
-    url: "/exercises",
-    icon: BookOpen,
+    title: "Programas",
+    url: "/programs",
+    icon: SquareStack,
   },
   {
     title: "Rutinas",
     url: "/routines",
     icon: Calendar,
+  },
+  {
+    title: "Ejercicios",
+    url: "/exercises",
+    icon: BookOpen,
   },
   {
     title: "Estadísticas",

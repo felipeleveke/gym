@@ -14,14 +14,16 @@ type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other' | null;
 function NewTrainingContent() {
   const searchParams = useSearchParams();
   const routineId = searchParams.get('routineId');
-  const [selectedType, setSelectedType] = useState<TrainingType>(routineId ? 'gym' : null);
+  const variantId = searchParams.get('variantId');
+  const phaseRoutineId = searchParams.get('phaseRoutineId');
+  const [selectedType, setSelectedType] = useState<TrainingType>(routineId || variantId ? 'gym' : null);
 
   useEffect(() => {
-    // Si hay un routineId, automáticamente seleccionar tipo gym
-    if (routineId) {
+    // Si hay un routineId o variantId, automáticamente seleccionar tipo gym
+    if (routineId || variantId) {
       setSelectedType('gym');
     }
-  }, [routineId]);
+  }, [routineId, variantId]);
 
   const handleTypeSelect = (type: TrainingType) => {
     setSelectedType(type);
@@ -38,7 +40,12 @@ function NewTrainingContent() {
         {!selectedType ? (
           <TrainingTypeSelector onSelect={handleTypeSelect} />
         ) : selectedType === 'gym' ? (
-          <GymTrainingFormDetailed onBack={handleBack} routineId={routineId || undefined} />
+          <GymTrainingFormDetailed 
+            onBack={handleBack} 
+            routineId={routineId || undefined} 
+            variantId={variantId || undefined}
+            phaseRoutineId={phaseRoutineId || undefined}
+          />
         ) : selectedType === 'sport' ? (
           <SportTrainingForm onBack={handleBack} />
         ) : selectedType === 'cardio' ? (

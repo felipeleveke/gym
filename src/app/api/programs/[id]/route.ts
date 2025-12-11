@@ -28,6 +28,17 @@ export async function GET(
               variant_name,
               intensity_level,
               workout_routine:workout_routines (id, name)
+            ),
+            phase_routines (
+              id,
+              scheduled_at,
+              notes,
+              routine_variant:routine_variants (
+                id,
+                variant_name,
+                intensity_level,
+                workout_routine:workout_routines (id, name)
+              )
             )
           )
         )
@@ -158,6 +169,17 @@ export async function PUT(
               variant_name,
               intensity_level,
               workout_routine:workout_routines (id, name)
+            ),
+            phase_routines (
+              id,
+              scheduled_at,
+              notes,
+              routine_variant:routine_variants (
+                id,
+                variant_name,
+                intensity_level,
+                workout_routine:workout_routines (id, name)
+              )
             )
           )
         )
