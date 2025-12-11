@@ -356,7 +356,7 @@ export function ProgramsListClient() {
           <DialogHeader>
             <DialogTitle>Duplicar Programa</DialogTitle>
             <DialogDescription>
-              Se creará una copia de "{programToClone?.name}" con todos sus bloques y fases.
+              Se creará una copia de &quot;{programToClone?.name}&quot; con todos sus bloques y fases.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
