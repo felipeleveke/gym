@@ -31,6 +31,34 @@ interface RoutineExercise {
   };
 }
 
+interface VariantExerciseSet {
+  id: string;
+  set_number: number;
+  target_reps?: number | null;
+  target_weight?: number | null;
+  set_type: string;
+}
+
+interface VariantExercise {
+  id: string;
+  order_index: number;
+  notes?: string | null;
+  exercise?: {
+    id: string;
+    name: string;
+    muscle_groups?: string[];
+  };
+  variant_exercise_sets?: VariantExerciseSet[];
+}
+
+interface RoutineVariant {
+  id: string;
+  variant_name: string;
+  intensity_level: number;
+  is_default: boolean;
+  variant_exercises?: VariantExercise[];
+}
+
 interface RoutineCardProps {
   routine: {
     id: string;
@@ -42,6 +70,7 @@ interface RoutineCardProps {
     created_at: string;
     updated_at: string;
     routine_exercises?: RoutineExercise[];
+    routine_variants?: RoutineVariant[];
   };
   onUse: () => void;
   onEdit: () => void;
@@ -49,9 +78,29 @@ interface RoutineCardProps {
 }
 
 export function RoutineCard({ routine, onUse, onEdit, onDelete }: RoutineCardProps) {
-  const exerciseCount = routine.routine_exercises?.length || 0;
+  // Check if this routine uses advanced variants
+  const hasVariants = routine.routine_variants && routine.routine_variants.length > 0;
+  const hasBasicExercises = routine.routine_exercises && routine.routine_exercises.length > 0;
+  
+  // Get exercise count - from basic exercises or from variants
+  const basicExerciseCount = routine.routine_exercises?.length || 0;
+  const variantExerciseCount = hasVariants 
+    ? routine.routine_variants!.reduce((acc, v) => 
+        Math.max(acc, v.variant_exercises?.length || 0), 0)
+    : 0;
+  const exerciseCount = basicExerciseCount || variantExerciseCount;
+  
+  // Get sorted exercises - basic or from default variant
   const sortedExercises = routine.routine_exercises
     ? [...routine.routine_exercises].sort((a, b) => a.order_index - b.order_index)
+    : [];
+  
+  // Get variant exercises (from default variant or first variant)
+  const defaultVariant = hasVariants 
+    ? routine.routine_variants!.find(v => v.is_default) || routine.routine_variants![0]
+    : null;
+  const sortedVariantExercises = defaultVariant?.variant_exercises
+    ? [...defaultVariant.variant_exercises].sort((a, b) => a.order_index - b.order_index)
     : [];
 
   return (
@@ -94,23 +143,109 @@ export function RoutineCard({ routine, onUse, onEdit, onDelete }: RoutineCardPro
           )}
         </div>
 
+        {/* Basic exercises */}
         {sortedExercises.length > 0 && (
           <div className="space-y-2 pt-2 border-t">
             <p className="text-xs font-medium text-muted-foreground">Ejercicios:</p>
-            <div className="space-y-1">
-              {sortedExercises.slice(0, 3).map((ex, index) => (
-                <div key={ex.id || index} className="text-xs text-muted-foreground">
-                  <span className="font-medium">#{ex.order_index}</span> {ex.exercise?.name || 'Ejercicio'}
-                  {ex.default_weight && (
-                    <span className="ml-2 text-primary font-medium">
-                      ({ex.default_weight}kg)
-                    </span>
+            <div className="space-y-2">
+              {sortedExercises.slice(0, 5).map((ex, index) => (
+                <div key={ex.id || index} className="flex flex-col gap-0.5">
+                  <div className="text-sm text-foreground">
+                    <span className="text-muted-foreground">#{ex.order_index}</span>{' '}
+                    <span className="font-medium">{ex.exercise?.name || 'Ejercicio'}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {ex.default_sets && (
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                        {ex.default_sets} series
+                      </Badge>
+                    )}
+                    {ex.default_reps && (
+                      <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                        {ex.default_reps} reps
+                      </Badge>
+                    )}
+                    {ex.default_weight && (
+                      <Badge variant="outline" className="text-xs px-1.5 py-0 text-primary border-primary/30">
+                        {ex.default_weight} kg
+                      </Badge>
+                    )}
+                  </div>
+                  {ex.notes && (
+                    <p className="text-xs text-muted-foreground italic mt-0.5 line-clamp-1">
+                      {ex.notes}
+                    </p>
                   )}
                 </div>
               ))}
-              {sortedExercises.length > 3 && (
-                <p className="text-xs text-muted-foreground italic">
-                  +{sortedExercises.length - 3} ejercicio{sortedExercises.length - 3 !== 1 ? 's' : ''} más
+              {sortedExercises.length > 5 && (
+                <p className="text-xs text-muted-foreground italic pt-1">
+                  +{sortedExercises.length - 5} ejercicio{sortedExercises.length - 5 !== 1 ? 's' : ''} más
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Variant exercises (when no basic exercises) */}
+        {!hasBasicExercises && sortedVariantExercises.length > 0 && (
+          <div className="space-y-2 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground">
+                Ejercicios {defaultVariant && `(${defaultVariant.variant_name})`}:
+              </p>
+              {hasVariants && routine.routine_variants!.length > 1 && (
+                <Badge variant="outline" className="text-xs px-1.5 py-0">
+                  {routine.routine_variants!.length} variantes
+                </Badge>
+              )}
+            </div>
+            <div className="space-y-2">
+              {sortedVariantExercises.slice(0, 5).map((ex, index) => {
+                // Calculate totals from sets
+                const sets = ex.variant_exercise_sets || [];
+                const totalSets = sets.length;
+                const avgReps = sets.length > 0 
+                  ? Math.round(sets.reduce((acc, s) => acc + (s.target_reps || 0), 0) / sets.length)
+                  : null;
+                const maxWeight = sets.length > 0
+                  ? Math.max(...sets.map(s => s.target_weight || 0))
+                  : null;
+                
+                return (
+                  <div key={ex.id || index} className="flex flex-col gap-0.5">
+                    <div className="text-sm text-foreground">
+                      <span className="text-muted-foreground">#{ex.order_index + 1}</span>{' '}
+                      <span className="font-medium">{ex.exercise?.name || 'Ejercicio'}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      {totalSets > 0 && (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                          {totalSets} series
+                        </Badge>
+                      )}
+                      {avgReps && avgReps > 0 && (
+                        <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                          ~{avgReps} reps
+                        </Badge>
+                      )}
+                      {maxWeight && maxWeight > 0 && (
+                        <Badge variant="outline" className="text-xs px-1.5 py-0 text-primary border-primary/30">
+                          {maxWeight} kg
+                        </Badge>
+                      )}
+                    </div>
+                    {ex.notes && (
+                      <p className="text-xs text-muted-foreground italic mt-0.5 line-clamp-1">
+                        {ex.notes}
+                      </p>
+                    )}
+                  </div>
+                );
+              })}
+              {sortedVariantExercises.length > 5 && (
+                <p className="text-xs text-muted-foreground italic pt-1">
+                  +{sortedVariantExercises.length - 5} ejercicio{sortedVariantExercises.length - 5 !== 1 ? 's' : ''} más
                 </p>
               )}
             </div>
@@ -169,6 +304,10 @@ export function RoutineCard({ routine, onUse, onEdit, onDelete }: RoutineCardPro
     </Card>
   );
 }
+
+
+
+
 
 
 

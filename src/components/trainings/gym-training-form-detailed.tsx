@@ -19,6 +19,7 @@ import { ExerciseSelector } from './exercise-selector';
 import { ExerciseForm } from './exercise-form';
 import { EditableMarkdown } from '@/components/ui/editable-markdown';
 import { ActiveExerciseModal } from './active-exercise-modal';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 
 interface Exercise {
   id: string;
@@ -177,7 +178,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                   id: `temp-${Date.now()}-${re.order_index}-${i}`,
                   set_number: setNumber,
                   weight: setWeight,
-                  reps: null, // No pre-poblar reps según especificaciones
+                  reps: re.default_reps || null,
                   set_type: 'working' as const,
                 };
               });
@@ -243,7 +244,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                   id: `temp-${Date.now()}-${ve.order_index}-${set.set_number}`,
                   set_number: set.set_number,
                   weight: set.target_weight || null, // Pre-fill target weight
-                  reps: null, // User fills actual reps
+                  reps: set.target_reps || null,
                   rir: set.target_rir !== undefined ? set.target_rir : null,
                   set_type: set.set_type || 'working',
                   notes: set.notes || null,
@@ -359,9 +360,32 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   // Función para actualizar un set específico
   const handleUpdateActiveSet = (setId: string, field: keyof ExerciseSet, value: any) => {
     const updatedExercises = exercises.map(ex => {
-      const updatedSets = ex.sets.map(set => 
-        set.id === setId ? { ...set, [field]: value === '' ? null : value } : set
-      );
+      const updatedSets = ex.sets.map(set => {
+        if (set.id !== setId) return set;
+        
+        const updatedSet = { ...set, [field]: value === '' ? null : value };
+        
+        // Calculate 1RM and % if weight or reps change
+        if (field === 'weight' || field === 'reps') {
+          const weight = field === 'weight' ? (value === '' ? null : Number(value)) : set.weight;
+          const reps = field === 'reps' ? (value === '' ? null : Number(value)) : set.reps;
+
+          if (weight && reps && reps > 0) {
+            // Formula: (Weight x Reps x 0.03) + Weight
+            const oneRm = (weight * reps * 0.03) + weight;
+            // Percentage: Weight / 1RM
+            const percentage = (weight / oneRm) * 100;
+            
+            updatedSet.theoretical_one_rm = parseFloat(oneRm.toFixed(2));
+            updatedSet.percentage_one_rm = parseFloat(percentage.toFixed(2));
+          } else {
+            updatedSet.theoretical_one_rm = null;
+            updatedSet.percentage_one_rm = null;
+          }
+        }
+        
+        return updatedSet;
+      });
       return { ...ex, sets: updatedSets };
     });
     setExercises(updatedExercises);
@@ -1046,14 +1070,12 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                 <div className="space-y-2">
                   <Label htmlFor="training-start-time" className="text-sm">Hora de Inicio</Label>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <Input
+                    <DateTimePicker
                       id="training-start-time"
-                      type="datetime-local"
                       value={toDateTimeLocal(trainingStartTime)}
-                      onChange={(e) => handleTrainingStartTimeChange(e.target.value)}
+                      onChange={handleTrainingStartTimeChange}
                       disabled={isSubmitting}
                       className="flex-1 text-sm"
-                      required
                     />
                     <Button
                       type="button"
@@ -1071,11 +1093,10 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                 <div className="space-y-2">
                   <Label htmlFor="training-end-time" className="text-sm">Hora de Término</Label>
                   <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                    <Input
+                    <DateTimePicker
                       id="training-end-time"
-                      type="datetime-local"
                       value={toDateTimeLocal(trainingEndTime)}
-                      onChange={(e) => handleTrainingEndTimeChange(e.target.value)}
+                      onChange={handleTrainingEndTimeChange}
                       disabled={isSubmitting}
                       className="flex-1 text-sm"
                     />

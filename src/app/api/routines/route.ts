@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type'); // 'gym' | 'sport' | null (all)
     const isActive = searchParams.get('isActive'); // 'true' | 'false' | null (all)
+    const isTemplate = searchParams.get('isTemplate'); // 'true' | 'false' | null (default true)
 
     let query = supabase
       .from('workout_routines')
@@ -22,6 +23,14 @@ export async function GET(request: NextRequest) {
         routine_exercises (
           *,
           exercise:exercises (*)
+        ),
+        routine_variants (
+          *,
+          variant_exercises (
+            *,
+            exercise:exercises (*),
+            variant_exercise_sets (*)
+          )
         )
       `)
       .eq('user_id', user.id)
@@ -33,6 +42,13 @@ export async function GET(request: NextRequest) {
 
     if (isActive !== null) {
       query = query.eq('is_active', isActive === 'true');
+    }
+
+    // Default to showing only templates unless isTemplate param is explicitly provided
+    if (isTemplate !== null) {
+      query = query.eq('is_template', isTemplate === 'true');
+    } else {
+      query = query.eq('is_template', true);
     }
 
     const { data: routines, error } = await query;
@@ -142,6 +158,10 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
+
+
+
 
 
 

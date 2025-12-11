@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
@@ -42,6 +43,8 @@ export function FlexibilityTrainingFormEdit({ training }: FlexibilityTrainingFor
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<FlexibilityTrainingFormData>({
     resolver: zodResolver(flexibilityTrainingSchema),
@@ -52,6 +55,8 @@ export function FlexibilityTrainingFormEdit({ training }: FlexibilityTrainingFor
       tags: defaultTags,
     },
   });
+
+  const dateValue = watch('date');
 
   const onSubmit = async (data: FlexibilityTrainingFormData) => {
     setIsSubmitting(true);
@@ -123,10 +128,10 @@ export function FlexibilityTrainingFormEdit({ training }: FlexibilityTrainingFor
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="date">Fecha y Hora</Label>
-            <Input
+            <DateTimePicker
               id="date"
-              type="datetime-local"
-              {...register('date')}
+              value={dateValue}
+              onChange={(value) => setValue('date', value, { shouldValidate: true })}
               disabled={isSubmitting}
             />
             {errors.date && (
@@ -191,6 +196,10 @@ export function FlexibilityTrainingFormEdit({ training }: FlexibilityTrainingFor
     </Card>
   );
 }
+
+
+
+
 
 
 

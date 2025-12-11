@@ -35,11 +35,15 @@ const config: Config = {
   				DEFAULT: 'hsl(var(--accent))',
   				foreground: 'hsl(var(--accent-foreground))'
   			},
-  			card: {
-  				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
-  			},
-  			sidebar: {
+			card: {
+				DEFAULT: 'hsl(var(--card))',
+				foreground: 'hsl(var(--card-foreground))'
+			},
+			popover: {
+				DEFAULT: 'hsl(var(--popover))',
+				foreground: 'hsl(var(--popover-foreground))'
+			},
+			sidebar: {
   				DEFAULT: 'hsl(var(--sidebar-background))',
   				foreground: 'hsl(var(--sidebar-foreground))',
   				primary: 'hsl(var(--sidebar-primary))',

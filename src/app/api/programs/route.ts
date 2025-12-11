@@ -145,19 +145,40 @@ export async function POST(request: NextRequest) {
 
             // Insert phase_routines if provided
             if (phase.routines && Array.isArray(phase.routines) && phase.routines.length > 0) {
-              const routinesToInsert = phase.routines.map((routine: any) => ({
-                phase_id: newPhase.id,
-                routine_variant_id: routine.routine_variant_id,
-                scheduled_at: routine.scheduled_at,
-                notes: routine.notes || null,
-              }));
+              const routinesToInsert = [];
+              for (const routine of phase.routines) {
+                // Call RPC to get or create program-specific routine variant
+                const { data: newVariantId, error: rpcError } = await supabase.rpc(
+                  'get_or_create_program_routine_variant',
+                  {
+                    source_variant_id: routine.routine_variant_id,
+                    target_program_id: program.id
+                  }
+                );
+                
+                if (rpcError) {
+                  console.error('Error creating program routine variant:', rpcError);
+                  continue;
+                }
 
-              const { error: routinesError } = await supabase
-                .from('phase_routines')
-                .insert(routinesToInsert);
+                if (newVariantId) {
+                  routinesToInsert.push({
+                    phase_id: newPhase.id,
+                    routine_variant_id: newVariantId,
+                    scheduled_at: routine.scheduled_at,
+                    notes: routine.notes || null,
+                  });
+                }
+              }
 
-              if (routinesError) {
-                console.error('Error creating phase_routines:', routinesError);
+              if (routinesToInsert.length > 0) {
+                const { error: routinesError } = await supabase
+                  .from('phase_routines')
+                  .insert(routinesToInsert);
+
+                if (routinesError) {
+                  console.error('Error creating phase_routines:', routinesError);
+                }
               }
             }
           }

@@ -23,6 +23,34 @@ interface RoutineExercise {
   };
 }
 
+interface VariantExerciseSet {
+  id: string;
+  set_number: number;
+  target_reps?: number | null;
+  target_weight?: number | null;
+  set_type: string;
+}
+
+interface VariantExercise {
+  id: string;
+  order_index: number;
+  notes?: string | null;
+  exercise?: {
+    id: string;
+    name: string;
+    muscle_groups?: string[];
+  };
+  variant_exercise_sets?: VariantExerciseSet[];
+}
+
+interface RoutineVariant {
+  id: string;
+  variant_name: string;
+  intensity_level: number;
+  is_default: boolean;
+  variant_exercises?: VariantExercise[];
+}
+
 interface Routine {
   id: string;
   name: string;
@@ -33,6 +61,7 @@ interface Routine {
   created_at: string;
   updated_at: string;
   routine_exercises?: RoutineExercise[];
+  routine_variants?: RoutineVariant[];
 }
 
 export function RoutinesListClient() {

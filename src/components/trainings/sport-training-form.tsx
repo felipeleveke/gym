@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { useGeolocation } from '@/hooks/use-geolocation';
@@ -76,6 +77,7 @@ export function SportTrainingForm({ onBack }: SportTrainingFormProps) {
   });
 
   const notesValue = watch('notes');
+  const dateValue = watch('date');
 
   const handleGetLocation = async () => {
     const position = await getCurrentPosition();
@@ -220,10 +222,10 @@ export function SportTrainingForm({ onBack }: SportTrainingFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="date">Fecha y Hora</Label>
-            <Input
+            <DateTimePicker
               id="date"
-              type="datetime-local"
-              {...register('date')}
+              value={dateValue}
+              onChange={(value) => setValue('date', value, { shouldValidate: true })}
               disabled={isSubmitting}
             />
             {errors.date && (

@@ -76,7 +76,10 @@ export function TrainingsList({
     <div className="space-y-6">
       {sortedDates.map((dateKey) => {
         const dayTrainings = groupedTrainings[dateKey];
-        const date = new Date(dateKey);
+        // Parsear fecha manualmente para evitar problemas de zona horaria
+        // new Date("YYYY-MM-DD") interpreta como UTC, causando desfase de días
+        const [year, month, day] = dateKey.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
         const today = new Date();
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);

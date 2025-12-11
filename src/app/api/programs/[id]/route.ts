@@ -37,7 +37,22 @@ export async function GET(
                 id,
                 variant_name,
                 intensity_level,
-                workout_routine:workout_routines (id, name)
+                workout_routine:workout_routines (id, name, origin_routine_id),
+                variant_exercises (
+                  id,
+                  order_index,
+                  notes,
+                  exercise:exercises (id, name, muscle_groups),
+                  variant_exercise_sets (
+                    id,
+                    set_number,
+                    target_reps,
+                    target_weight,
+                    target_weight_percent,
+                    target_rir,
+                    set_type
+                  )
+                )
               )
             )
           )
@@ -139,18 +154,65 @@ export async function PUT(
         }
 
         if (block.phases && Array.isArray(block.phases)) {
-          const phasesToInsert = block.phases.map((phase: any) => ({
-            block_id: newBlock.id,
-            week_number: phase.week_number,
-            variant_id: phase.variant_id || null,
-            intensity_modifier: phase.intensity_modifier || 1.00,
-            volume_modifier: phase.volume_modifier || 1.00,
-            notes: phase.notes || null,
-          }));
+          for (const phase of block.phases) {
+            // Insert the phase
+            const { data: newPhase, error: phaseError } = await supabase
+              .from('block_phases')
+              .insert({
+                block_id: newBlock.id,
+                week_number: phase.week_number,
+                variant_id: phase.variant_id || null,
+                intensity_modifier: phase.intensity_modifier || 1.00,
+                volume_modifier: phase.volume_modifier || 1.00,
+                notes: phase.notes || null,
+              })
+              .select()
+              .single();
 
-          await supabase
-            .from('block_phases')
-            .insert(phasesToInsert);
+            if (phaseError || !newPhase) {
+              console.error('Error creating phase:', phaseError);
+              continue;
+            }
+
+            // Insert phase_routines if provided
+            if (phase.routines && Array.isArray(phase.routines) && phase.routines.length > 0) {
+              const routinesToInsert = [];
+              for (const routine of phase.routines) {
+                // Call RPC to get or create program-specific routine variant
+                const { data: newVariantId, error: rpcError } = await supabase.rpc(
+                  'get_or_create_program_routine_variant',
+                  {
+                    source_variant_id: routine.routine_variant_id,
+                    target_program_id: programId
+                  }
+                );
+                
+                if (rpcError) {
+                  console.error('Error creating program routine variant:', rpcError);
+                  continue;
+                }
+
+                if (newVariantId) {
+                  routinesToInsert.push({
+                    phase_id: newPhase.id,
+                    routine_variant_id: newVariantId,
+                    scheduled_at: routine.scheduled_at,
+                    notes: routine.notes || null,
+                  });
+                }
+              }
+
+              if (routinesToInsert.length > 0) {
+                const { error: routinesError } = await supabase
+                  .from('phase_routines')
+                  .insert(routinesToInsert);
+
+                if (routinesError) {
+                  console.error('Error creating phase_routines:', routinesError);
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -178,7 +240,22 @@ export async function PUT(
                 id,
                 variant_name,
                 intensity_level,
-                workout_routine:workout_routines (id, name)
+                workout_routine:workout_routines (id, name, origin_routine_id),
+                variant_exercises (
+                  id,
+                  order_index,
+                  notes,
+                  exercise:exercises (id, name, muscle_groups),
+                  variant_exercise_sets (
+                    id,
+                    set_number,
+                    target_reps,
+                    target_weight,
+                    target_weight_percent,
+                    target_rir,
+                    set_type
+                  )
+                )
               )
             )
           )

@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GripVertical, Trash2, Plus, X, Loader2, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { GripVertical, Trash2, Plus, X, Loader2, Info, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { ExerciseHistoryModal } from './exercise-history-modal';
 import { cn } from '@/lib/utils';
 import { SetTimer } from './set-timer';
 import { EditableMarkdown } from '@/components/ui/editable-markdown';
@@ -26,6 +27,8 @@ interface ExerciseSet {
   rir?: number | null;
   notes?: string | null;
   set_type?: SetType | null;
+  theoretical_one_rm?: number | null;
+  percentage_one_rm?: number | null;
 }
 
 interface Exercise {
@@ -112,6 +115,7 @@ export function ExerciseForm({
   const [collapsedSetIds, setCollapsedSetIds] = useState<Set<string>>(new Set());
   const [notesExpanded, setNotesExpanded] = useState(false);
   const [exerciseCollapsed, setExerciseCollapsed] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
 
   // Expandir notas automáticamente si tienen contenido o se está generando resumen
   useEffect(() => {
@@ -146,9 +150,33 @@ export function ExerciseForm({
   };
 
   const updateSet = (setId: string, field: keyof ExerciseSet, value: any) => {
-    const updatedSets = sets.map((s) =>
-      s.id === setId ? { ...s, [field]: value === '' ? null : value } : s
-    );
+    const updatedSets = sets.map((s) => {
+      if (s.id !== setId) return s;
+
+      const updatedSet = { ...s, [field]: value === '' ? null : value };
+      
+      // Calculate 1RM and % if weight or reps change
+      if (field === 'weight' || field === 'reps') {
+        const weight = field === 'weight' ? (value === '' ? null : Number(value)) : s.weight;
+        const reps = field === 'reps' ? (value === '' ? null : Number(value)) : s.reps;
+
+        if (weight && reps && reps > 0) {
+          // Formula: (Weight x Reps x 0.03) + Weight
+          const oneRm = (weight * reps * 0.03) + weight;
+          // Percentage: Weight / 1RM
+          // Which simplifies to 1 / (1 + 0.03 * reps)
+          const percentage = (weight / oneRm) * 100;
+          
+          updatedSet.theoretical_one_rm = parseFloat(oneRm.toFixed(2));
+          updatedSet.percentage_one_rm = parseFloat(percentage.toFixed(2));
+        } else {
+          updatedSet.theoretical_one_rm = null;
+          updatedSet.percentage_one_rm = null;
+        }
+      }
+      
+      return updatedSet;
+    });
     onUpdateSets(updatedSets);
   };
 
@@ -223,6 +251,16 @@ export function ExerciseForm({
                 <Badge variant="secondary" className="text-[10px] sm:text-xs shrink-0">
                   #{exerciseIndex + 1}
                 </Badge>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowHistoryModal(true)}
+                  className="h-6 px-1.5 text-xs text-muted-foreground hover:text-primary shrink-0"
+                  title="Ver historial"
+                >
+                  <History className="h-3.5 w-3.5" />
+                </Button>
                 {previousMarks && (previousMarks.lastWeight || previousMarks.bestWeight) && (
                   <div className="flex items-center gap-1.5 flex-wrap">
                     {previousMarks.lastWeight && (
@@ -412,9 +450,25 @@ export function ExerciseForm({
                     
                     {/* Peso */}
                     <div className="col-span-1 sm:col-span-1 md:col-span-2">
-                      <Label htmlFor={`weight-${set.id}`} className="text-xs">
-                        Peso (kg)
-                      </Label>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor={`weight-${set.id}`} className="text-xs">
+                          Peso (kg)
+                        </Label>
+                        {(set.theoretical_one_rm || set.percentage_one_rm) && (
+                          <div className="flex gap-1">
+                            {set.percentage_one_rm && (
+                              <Badge variant="secondary" className="text-[9px] h-3.5 px-1 font-normal bg-muted text-muted-foreground hover:bg-muted">
+                                {Math.round(set.percentage_one_rm)}%
+                              </Badge>
+                            )}
+                            {set.theoretical_one_rm && (
+                              <Badge variant="secondary" className="text-[9px] h-3.5 px-1 font-normal bg-muted text-muted-foreground hover:bg-muted">
+                                1RM: {Math.round(set.theoretical_one_rm)}
+                              </Badge>
+                            )}
+                          </div>
+                        )}
+                      </div>
                       <Input
                         id={`weight-${set.id}`}
                         type="number"
@@ -435,7 +489,7 @@ export function ExerciseForm({
                     
                     {/* Reps */}
                     <div className="col-span-1 sm:col-span-1 md:col-span-2">
-                      <Label htmlFor={`reps-${set.id}`} className="text-xs">
+                      <Label htmlFor={`reps-${set.id}`} className="text-xs mb-1 block">
                         Reps
                       </Label>
                       <Input
@@ -598,6 +652,14 @@ export function ExerciseForm({
         </div>
       </CardContent>
       )}
+
+      {/* Modal de historial del ejercicio */}
+      <ExerciseHistoryModal
+        open={showHistoryModal}
+        onOpenChange={setShowHistoryModal}
+        exerciseId={exercise.id}
+        exerciseName={exercise.name}
+      />
     </Card>
   );
 }

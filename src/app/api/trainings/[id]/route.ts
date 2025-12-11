@@ -273,6 +273,8 @@ export async function PUT(
               rir: set.rir !== undefined && set.rir !== null ? Number(set.rir) : null,
               notes: set.notes || null,
               set_type: set.set_type || 'working',
+              theoretical_one_rm: set.theoretical_one_rm !== undefined && set.theoretical_one_rm !== null ? Number(set.theoretical_one_rm) : null,
+              percentage_one_rm: set.percentage_one_rm !== undefined && set.percentage_one_rm !== null ? Number(set.percentage_one_rm) : null,
             }));
 
             const { error: setsError } = await supabase

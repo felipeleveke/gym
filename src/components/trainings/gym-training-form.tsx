@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
@@ -34,6 +35,8 @@ export function GymTrainingForm({ onBack }: GymTrainingFormProps) {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<GymTrainingFormData>({
     resolver: zodResolver(gymTrainingSchema),
@@ -42,6 +45,8 @@ export function GymTrainingForm({ onBack }: GymTrainingFormProps) {
       duration: 60,
     },
   });
+
+  const dateValue = watch('date');
 
   const onSubmit = async (data: GymTrainingFormData) => {
     setIsSubmitting(true);
@@ -108,10 +113,10 @@ export function GymTrainingForm({ onBack }: GymTrainingFormProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="date">Fecha y Hora</Label>
-            <Input
+            <DateTimePicker
               id="date"
-              type="datetime-local"
-              {...register('date')}
+              value={dateValue}
+              onChange={(value) => setValue('date', value, { shouldValidate: true })}
               disabled={isSubmitting}
             />
             {errors.date && (

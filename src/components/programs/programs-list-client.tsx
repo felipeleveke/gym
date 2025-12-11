@@ -15,7 +15,8 @@ import {
   Play, 
   MoreVertical,
   Layers,
-  ChevronRight
+  ChevronRight,
+  Edit
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -228,10 +229,9 @@ export function ProgramsListClient() {
         {programs.map((program) => (
           <Card 
             key={program.id} 
-            className={`cursor-pointer hover:border-primary/50 transition-colors ${
+            className={`hover:border-primary/50 transition-colors ${
               program.is_active ? 'ring-2 ring-primary/20' : ''
             }`}
-            onClick={() => router.push(`/programs/${program.id}`)}
           >
             <CardHeader className="pb-3">
               <div className="flex items-start justify-between">
@@ -251,15 +251,18 @@ export function ProgramsListClient() {
                   )}
                 </div>
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <DropdownMenuItem onSelect={() => router.push(`/programs/${program.id}/edit`)}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Editar
+                    </DropdownMenuItem>
                     <DropdownMenuItem 
-                      onClick={(e) => {
-                        e.stopPropagation();
+                      onSelect={() => {
                         setProgramToClone(program);
                         setCloneName(`${program.name} (copia)`);
                         setCloneDialogOpen(true);
@@ -269,10 +272,7 @@ export function ProgramsListClient() {
                       Duplicar
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteProgram(program.id);
-                      }}
+                      onSelect={() => handleDeleteProgram(program.id)}
                       className="text-destructive"
                     >
                       <Trash2 className="mr-2 h-4 w-4" />
@@ -336,7 +336,12 @@ export function ProgramsListClient() {
               )}
 
               <div className="flex justify-end">
-                <Button variant="ghost" size="sm" className="text-primary">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-primary"
+                  onClick={() => router.push(`/programs/${program.id}`)}
+                >
                   Ver detalles
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>

@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
@@ -38,6 +39,8 @@ export function CardioTrainingForm({ onBack }: CardioTrainingFormProps) {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isDirty },
   } = useForm<CardioTrainingFormData>({
     resolver: zodResolver(cardioTrainingSchema),
@@ -46,6 +49,8 @@ export function CardioTrainingForm({ onBack }: CardioTrainingFormProps) {
       duration: 30,
     },
   });
+
+  const dateValue = watch('date');
 
   const onSubmit = async (data: CardioTrainingFormData) => {
     setIsSubmitting(true);
@@ -138,10 +143,10 @@ export function CardioTrainingForm({ onBack }: CardioTrainingFormProps) {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="date">Fecha y Hora</Label>
-            <Input
+            <DateTimePicker
               id="date"
-              type="datetime-local"
-              {...register('date')}
+              value={dateValue}
+              onChange={(value) => setValue('date', value, { shouldValidate: true })}
               disabled={isSubmitting}
             />
             {errors.date && (

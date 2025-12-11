@@ -18,6 +18,8 @@ interface ExerciseSet {
   rir?: number | null;
   notes?: string | null;
   set_type?: 'warmup' | 'approach' | 'working' | 'bilbo' | null;
+  theoretical_one_rm?: number | null;
+  percentage_one_rm?: number | null;
 }
 
 interface Exercise {
@@ -109,6 +111,11 @@ export function ActiveExerciseModal({
             {set.weight && (
               <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground">
                 {set.weight} kg
+                {set.theoretical_one_rm && set.percentage_one_rm && (
+                  <span className="text-base sm:text-lg md:text-xl ml-2 opacity-80">
+                    ({Math.round(set.percentage_one_rm)}% del 1RM: {Math.round(set.theoretical_one_rm)}kg)
+                  </span>
+                )}
               </p>
             )}
             {set.set_number && (

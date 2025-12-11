@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Play, Dumbbell, RotateCcw, X } from "lucide-react"
+import { Loader2, Play, Dumbbell, RotateCcw, X, Pencil } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -101,6 +101,10 @@ export function RoutineDetailModal({
       params.set("phaseRoutineId", phaseRoutineId)
     }
     router.push(`/trainings/new?${params.toString()}`)
+  }
+
+  const handleEditRoutine = () => {
+    router.push(`/routines/${routineId}/edit`)
   }
 
   const SET_TYPE_LABELS: Record<string, { label: string; color: string }> = {
@@ -229,6 +233,10 @@ export function RoutineDetailModal({
         <div className="flex justify-end gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cerrar
+          </Button>
+          <Button variant="secondary" onClick={handleEditRoutine} disabled={loading || !variant}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Editar
           </Button>
           <Button onClick={handleStartSession} disabled={loading || !variant}>
             <Play className="mr-2 h-4 w-4" />

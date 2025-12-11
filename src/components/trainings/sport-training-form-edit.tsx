@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
@@ -66,6 +67,8 @@ export function SportTrainingFormEdit({ training }: SportTrainingFormEditProps) 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isDirty },
   } = useForm<SportTrainingFormData>({
     resolver: zodResolver(sportTrainingSchema),
@@ -86,6 +89,8 @@ export function SportTrainingFormEdit({ training }: SportTrainingFormEditProps) 
       tags: defaultTags,
     },
   });
+
+  const dateValue = watch('date');
 
   const onSubmit = async (data: SportTrainingFormData) => {
     setIsSubmitting(true);
@@ -205,10 +210,10 @@ export function SportTrainingFormEdit({ training }: SportTrainingFormEditProps) 
 
           <div className="space-y-2">
             <Label htmlFor="date">Fecha y Hora</Label>
-            <Input
+            <DateTimePicker
               id="date"
-              type="datetime-local"
-              {...register('date')}
+              value={dateValue}
+              onChange={(value) => setValue('date', value, { shouldValidate: true })}
               disabled={isSubmitting}
             />
             {errors.date && (

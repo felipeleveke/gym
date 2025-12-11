@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 
@@ -42,6 +43,8 @@ export function OtherTrainingFormEdit({ training }: OtherTrainingFormEditProps) 
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<OtherTrainingFormData>({
     resolver: zodResolver(otherTrainingSchema),
@@ -52,6 +55,8 @@ export function OtherTrainingFormEdit({ training }: OtherTrainingFormEditProps) 
       tags: defaultTags,
     },
   });
+
+  const dateValue = watch('date');
 
   const onSubmit = async (data: OtherTrainingFormData) => {
     setIsSubmitting(true);
@@ -123,10 +128,10 @@ export function OtherTrainingFormEdit({ training }: OtherTrainingFormEditProps) 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="date">Fecha y Hora</Label>
-            <Input
+            <DateTimePicker
               id="date"
-              type="datetime-local"
-              {...register('date')}
+              value={dateValue}
+              onChange={(value) => setValue('date', value, { shouldValidate: true })}
               disabled={isSubmitting}
             />
             {errors.date && (
@@ -191,6 +196,10 @@ export function OtherTrainingFormEdit({ training }: OtherTrainingFormEditProps) 
     </Card>
   );
 }
+
+
+
+
 
 
 

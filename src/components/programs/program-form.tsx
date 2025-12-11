@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import { DatePicker, DateTimePicker } from '@/components/ui/date-time-picker';
 
 interface RoutineVariant {
   id: string;
@@ -88,17 +89,27 @@ const programSchema = z.object({
 
 type ProgramFormData = z.infer<typeof programSchema>;
 
-export function ProgramForm() {
+interface ProgramFormProps {
+  programId?: string;
+}
+
+export function ProgramForm({ programId }: ProgramFormProps = {}) {
   const router = useRouter();
   const { toast } = useToast();
   const [blocks, setBlocks] = useState<TrainingBlock[]>([]);
   const [availableVariants, setAvailableVariants] = useState<RoutineVariant[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingVariants, setLoadingVariants] = useState(true);
+  const [loadingProgram, setLoadingProgram] = useState(!!programId);
+  const [programDataLoaded, setProgramDataLoaded] = useState(false);
+  const mappingDoneRef = useRef(false);
 
   const {
     register,
     handleSubmit,
+    reset,
+    setValue,
+    watch,
     formState: { errors },
   } = useForm<ProgramFormData>({
     resolver: zodResolver(programSchema),
@@ -109,6 +120,120 @@ export function ProgramForm() {
       start_date: '',
     },
   });
+
+  // Fetch program data if editing
+  useEffect(() => {
+    const fetchProgram = async () => {
+      if (!programId) {
+        mappingDoneRef.current = false;
+        return;
+      }
+
+      // Reset mapping flag when programId changes
+      mappingDoneRef.current = false;
+      setProgramDataLoaded(false);
+
+      try {
+        const response = await fetch(`/api/programs/${programId}`);
+        if (!response.ok) throw new Error('Error fetching program');
+        
+        const result = await response.json();
+        const program = result.data;
+
+          // Set form values
+          if (program) {
+            // Reset form with program data
+            const formData = {
+              name: program.name || '',
+              description: program.description || '',
+              goal: program.goal || '',
+              start_date: program.start_date ? program.start_date.split('T')[0] : '',
+            };
+            
+            reset(formData);
+
+          // Convert program blocks to form blocks
+          // We'll map the routines after variants are loaded
+          const formBlocks: TrainingBlock[] = (program.training_blocks || [])
+            .sort((a: any, b: any) => a.order_index - b.order_index)
+            .map((block: any) => ({
+              id: block.id,
+              name: block.name,
+              block_type: block.block_type,
+              order_index: block.order_index,
+              duration_weeks: block.duration_weeks,
+              notes: block.notes || '',
+              phases: (block.block_phases || [])
+                .sort((a: any, b: any) => a.week_number - b.week_number)
+                .map((phase: any) => ({
+                  id: phase.id,
+                  week_number: phase.week_number,
+                  variant_id: phase.variant_id || null,
+                  intensity_modifier: phase.intensity_modifier || 1.0,
+                  volume_modifier: phase.volume_modifier || 1.0,
+                  notes: phase.notes || '',
+                  routines: (phase.phase_routines || []).map((pr: any) => ({
+                    id: pr.id,
+                    routine_variant_id: pr.routine_variant?.id || '',
+                    // Store original variant info for mapping
+                    originalVariantName: pr.routine_variant?.variant_name || '',
+                    originalRoutineId: pr.routine_variant?.workout_routine?.origin_routine_id || pr.routine_variant?.workout_routine?.id || '',
+                    scheduled_at: pr.scheduled_at ? new Date(pr.scheduled_at).toISOString().slice(0, 16) : '',
+                    notes: pr.notes || '',
+                  })),
+                })),
+            }));
+
+          setBlocks(formBlocks);
+          setProgramDataLoaded(true);
+        }
+      } catch (error) {
+        console.error('Error fetching program:', error);
+        toast({
+          title: 'Error',
+          description: 'No se pudo cargar el programa',
+          variant: 'destructive',
+        });
+      } finally {
+        setLoadingProgram(false);
+      }
+    };
+
+    fetchProgram();
+  }, [programId, toast, reset]);
+
+  // Map program-specific variants to original variants after both are loaded
+  useEffect(() => {
+    if (!programId || !programDataLoaded || loadingVariants || availableVariants.length === 0 || blocks.length === 0 || mappingDoneRef.current) return;
+
+    // Map routines to use original variant IDs
+    const mappedBlocks = blocks.map(block => ({
+      ...block,
+      phases: block.phases.map(phase => ({
+        ...phase,
+        routines: phase.routines.map((routine: any) => {
+          // If we have original info, try to find the original variant
+          if (routine.originalRoutineId && routine.originalVariantName) {
+            const originalVariant = availableVariants.find(
+              (v: RoutineVariant) =>
+                v.workout_routine?.id === routine.originalRoutineId &&
+                v.variant_name === routine.originalVariantName
+            );
+            if (originalVariant) {
+              return {
+                ...routine,
+                routine_variant_id: originalVariant.id,
+              };
+            }
+          }
+          return routine;
+        }),
+      })),
+    }));
+
+    setBlocks(mappedBlocks);
+    mappingDoneRef.current = true;
+  }, [programId, programDataLoaded, loadingVariants, availableVariants, blocks]);
 
   // Fetch available routine variants
   useEffect(() => {
@@ -150,11 +275,11 @@ export function ProgramForm() {
       block_type: 'hypertrophy',
       order_index: blocks.length,
       duration_weeks: 4,
-      phases: [
+          phases: [
         { week_number: 1, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0, routines: [] },
         { week_number: 2, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0, routines: [] },
         { week_number: 3, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0, routines: [] },
-        { week_number: 4, variant_id: null, intensity_modifier: 0.7, volume_modifier: 0.7, routines: [] }, // Deload week
+        { week_number: 4, variant_id: null, intensity_modifier: 1.0, volume_modifier: 1.0, routines: [] },
       ],
     };
     setBlocks([...blocks, newBlock]);
@@ -293,16 +418,19 @@ export function ProgramForm() {
           phases: block.phases.map((phase) => ({
             week_number: phase.week_number,
             variant_id: phase.variant_id,
-            intensity_modifier: phase.intensity_modifier,
-            volume_modifier: phase.volume_modifier,
+            intensity_modifier: 1.0, // Valor fijo, no editable
+            volume_modifier: 1.0, // Valor fijo, no editable
             notes: phase.notes,
             routines: phase.routines.filter(r => r.routine_variant_id && r.scheduled_at), // Only include valid routines
           })),
         })),
       };
 
-      const response = await fetch('/api/programs', {
-        method: 'POST',
+      const url = programId ? `/api/programs/${programId}` : '/api/programs';
+      const method = programId ? 'PUT' : 'POST';
+
+      const response = await fetch(url, {
+        method,
         headers: {
           'Content-Type': 'application/json',
         },
@@ -311,21 +439,21 @@ export function ProgramForm() {
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Error al crear el programa');
+        throw new Error(error.error || `Error al ${programId ? 'actualizar' : 'crear'} el programa`);
       }
 
       toast({
-        title: 'Programa creado',
-        description: `El programa "${data.name}" con ${blocks.length} bloque(s) se ha creado exitosamente.`,
+        title: programId ? 'Programa actualizado' : 'Programa creado',
+        description: `El programa "${data.name}" con ${blocks.length} bloque(s) se ha ${programId ? 'actualizado' : 'creado'} exitosamente.`,
       });
 
       router.push('/programs');
       router.refresh();
     } catch (error) {
-      console.error('Error creating program:', error);
+      console.error(`Error ${programId ? 'updating' : 'creating'} program:`, error);
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'No se pudo crear el programa',
+        description: error instanceof Error ? error.message : `No se pudo ${programId ? 'actualizar' : 'crear'} el programa`,
         variant: 'destructive',
       });
     } finally {
@@ -333,13 +461,23 @@ export function ProgramForm() {
     }
   };
 
+  if (loadingProgram) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h1 className="text-2xl font-bold">Crear Programa de Entrenamiento</h1>
+        <h1 className="text-2xl font-bold">
+          {programId ? 'Editar Programa de Entrenamiento' : 'Crear Programa de Entrenamiento'}
+        </h1>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -377,10 +515,10 @@ export function ProgramForm() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
                 <Label htmlFor="start_date">Fecha de Inicio</Label>
-                <Input
+                <DatePicker
                   id="start_date"
-                  type="date"
-                  {...register('start_date')}
+                  value={watch('start_date')}
+                  onChange={(value) => setValue('start_date', value)}
                 />
               </div>
 
@@ -578,12 +716,11 @@ export function ProgramForm() {
                                           </SelectContent>
                                         </Select>
 
-                                        <Input
-                                          type="datetime-local"
+                                        <DateTimePicker
                                           value={routine.scheduled_at}
-                                          onChange={(e) =>
+                                          onChange={(value) =>
                                             handleUpdatePhaseRoutine(blockIndex, phaseIndex, routineIndex, {
-                                              scheduled_at: e.target.value,
+                                              scheduled_at: value,
                                             })
                                           }
                                           className="w-[200px]"
@@ -613,39 +750,6 @@ export function ProgramForm() {
                                   </Button>
                                 </div>
 
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <Label className="text-xs">Int:</Label>
-                                  <Input
-                                    type="number"
-                                    min="0.1"
-                                    max="1.5"
-                                    step="0.1"
-                                    value={phase.intensity_modifier}
-                                    onChange={(e) =>
-                                      handleUpdatePhase(blockIndex, phaseIndex, {
-                                        intensity_modifier: parseFloat(e.target.value) || 1,
-                                      })
-                                    }
-                                    className="w-14 text-center"
-                                  />
-                                </div>
-
-                                <div className="flex items-center gap-1 flex-shrink-0">
-                                  <Label className="text-xs">Vol:</Label>
-                                  <Input
-                                    type="number"
-                                    min="0.1"
-                                    max="1.5"
-                                    step="0.1"
-                                    value={phase.volume_modifier}
-                                    onChange={(e) =>
-                                      handleUpdatePhase(blockIndex, phaseIndex, {
-                                        volume_modifier: parseFloat(e.target.value) || 1,
-                                      })
-                                    }
-                                    className="w-14 text-center"
-                                  />
-                                </div>
                               </div>
                             ))}
                           </div>
@@ -677,7 +781,7 @@ export function ProgramForm() {
             ) : (
               <>
                 <Save className="mr-2 h-4 w-4" />
-                Guardar Programa
+                {programId ? 'Actualizar Programa' : 'Guardar Programa'}
               </>
             )}
           </Button>

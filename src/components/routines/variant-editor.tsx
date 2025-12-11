@@ -39,6 +39,7 @@ interface VariantSet {
   target_rir: number | null;
   target_weight_percent: number | null;
   target_weight: number | null;
+  theoretical_one_rm?: number | null; // Calculated 1RM (not stored in DB, computed on the fly)
   set_type: 'warmup' | 'approach' | 'working' | 'backoff' | 'bilbo';
   notes?: string;
 }
@@ -107,12 +108,12 @@ export function VariantEditor({
     const newExercise: VariantExercise = {
       exercise,
       order_index: variant.exercises.length,
-      sets: [
+          sets: [
         {
           set_number: 1,
           target_reps: 10,
           target_rir: 2,
-          target_weight_percent: null,
+          target_weight_percent: null, // Will be calculated when weight is entered
           target_weight: null,
           set_type: 'working',
         },
@@ -155,10 +156,16 @@ export function VariantEditor({
       set_number: exercise.sets.length + 1,
       target_reps: lastSet?.target_reps || 10,
       target_rir: lastSet?.target_rir || 2,
-      target_weight_percent: lastSet?.target_weight_percent || null,
+      target_weight_percent: null, // Will be calculated when weight and reps are both present
       target_weight: lastSet?.target_weight || null,
       set_type: lastSet?.set_type || 'working',
     };
+    // If the new set has both weight and reps, calculate %RM immediately
+    if (newSet.target_weight && newSet.target_weight > 0 && newSet.target_reps && newSet.target_reps > 0) {
+      const oneRm = (newSet.target_weight * newSet.target_reps * 0.03) + newSet.target_weight;
+      const percentage = (newSet.target_weight / oneRm) * 100;
+      newSet.target_weight_percent = parseFloat(percentage.toFixed(2));
+    }
     handleUpdateExercise(exerciseIndex, { sets: [...exercise.sets, newSet] });
   };
 
@@ -175,6 +182,31 @@ export function VariantEditor({
     updates: Partial<VariantSet>
   ) => {
     const exercise = variant.exercises[exerciseIndex];
+    const currentSet = exercise.sets[setIndex];
+    
+    // Get the values that will be used (updated values or current values)
+    const reps = updates.target_reps !== undefined ? updates.target_reps : currentSet.target_reps;
+    const weight = updates.target_weight !== undefined ? updates.target_weight : currentSet.target_weight;
+    
+    // Auto-calc %RM and 1RM when reps or weight change (same logic as exercise-form.tsx)
+    if (updates.target_reps !== undefined || updates.target_weight !== undefined) {
+      // Only calculate if we have BOTH weight and reps (same as training screen)
+      if (weight && weight > 0 && reps && reps > 0) {
+        // Formula: (Weight x Reps x 0.03) + Weight
+        const oneRm = (weight * reps * 0.03) + weight;
+        // Percentage: Weight / 1RM * 100
+        const percentage = (weight / oneRm) * 100;
+        
+        // Use same precision as exercise-form.tsx (2 decimal places)
+        updates.target_weight_percent = parseFloat(percentage.toFixed(2));
+        updates.theoretical_one_rm = parseFloat(oneRm.toFixed(2));
+      } else {
+        // Clear percentage and 1RM if missing weight or reps
+        updates.target_weight_percent = null;
+        updates.theoretical_one_rm = null;
+      }
+    }
+
     const newSets = [...exercise.sets];
     newSets[setIndex] = { ...newSets[setIndex], ...updates };
     handleUpdateExercise(exerciseIndex, { sets: newSets });
@@ -342,10 +374,11 @@ export function VariantEditor({
                           <tr className="text-muted-foreground border-b">
                             <th className="text-left py-2 px-1 w-12">#</th>
                             <th className="text-left py-2 px-1">Tipo</th>
+                            <th className="text-center py-2 px-1">Peso (kg)</th>
                             <th className="text-center py-2 px-1">Reps</th>
                             <th className="text-center py-2 px-1">RIR</th>
                             <th className="text-center py-2 px-1">% 1RM</th>
-                            <th className="text-center py-2 px-1">Peso (kg)</th>
+                            <th className="text-center py-2 px-1">1RM</th>
                             {!isReadOnly && <th className="w-10"></th>}
                           </tr>
                         </thead>
@@ -382,6 +415,27 @@ export function VariantEditor({
                                         ))}
                                       </SelectContent>
                                     </Select>
+                                  )}
+                                </td>
+                                <td className="py-2 px-1 text-center">
+                                  {isReadOnly ? (
+                                    set.target_weight || '-'
+                                  ) : (
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="0.5"
+                                      value={set.target_weight || ''}
+                                      onChange={(e) =>
+                                        handleUpdateSet(exIndex, setIndex, {
+                                          target_weight: e.target.value
+                                            ? parseFloat(e.target.value)
+                                            : null,
+                                        })
+                                      }
+                                      className="h-8 w-20 text-center"
+                                      placeholder="-"
+                                    />
                                   )}
                                 </td>
                                 <td className="py-2 px-1 text-center">
@@ -432,47 +486,39 @@ export function VariantEditor({
                                 <td className="py-2 px-1 text-center">
                                   {isReadOnly ? (
                                     set.target_weight_percent
-                                      ? `${set.target_weight_percent}%`
+                                      ? `${parseFloat(set.target_weight_percent.toString()).toFixed(2)}%`
                                       : '-'
                                   ) : (
                                     <Input
                                       type="number"
                                       min="0"
                                       max="100"
-                                      step="5"
-                                      value={set.target_weight_percent || ''}
-                                      onChange={(e) =>
-                                        handleUpdateSet(exIndex, setIndex, {
-                                          target_weight_percent: e.target.value
-                                            ? parseFloat(e.target.value)
-                                            : null,
-                                        })
-                                      }
-                                      className="h-8 w-20 text-center"
-                                      placeholder="-"
+                                      step="0.01"
+                                      value={set.target_weight_percent !== null && set.target_weight_percent !== undefined 
+                                        ? parseFloat(set.target_weight_percent.toString()).toFixed(2) 
+                                        : ''}
+                                      readOnly
+                                      disabled
+                                      className="h-8 w-20 text-center bg-muted"
+                                      placeholder="Auto"
                                     />
                                   )}
                                 </td>
                                 <td className="py-2 px-1 text-center">
-                                  {isReadOnly ? (
-                                    set.target_weight || '-'
-                                  ) : (
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      step="0.5"
-                                      value={set.target_weight || ''}
-                                      onChange={(e) =>
-                                        handleUpdateSet(exIndex, setIndex, {
-                                          target_weight: e.target.value
-                                            ? parseFloat(e.target.value)
-                                            : null,
-                                        })
-                                      }
-                                      className="h-8 w-20 text-center"
-                                      placeholder="-"
-                                    />
-                                  )}
+                                  {(() => {
+                                    // Calculate 1RM if we have weight and reps
+                                    let oneRm = set.theoretical_one_rm;
+                                    if (!oneRm && set.target_weight && set.target_weight > 0 && set.target_reps && set.target_reps > 0) {
+                                      oneRm = (set.target_weight * set.target_reps * 0.03) + set.target_weight;
+                                    }
+                                    return oneRm ? (
+                                      <span className="text-sm font-mono text-muted-foreground">
+                                        {Math.round(oneRm)}kg
+                                      </span>
+                                    ) : (
+                                      <span className="text-muted-foreground">-</span>
+                                    );
+                                  })()}
                                 </td>
                                 {!isReadOnly && (
                                   <td className="py-2 px-1">
