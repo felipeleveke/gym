@@ -99,7 +99,7 @@ export function EquipmentSelector({ value, onChange, error }: EquipmentSelectorP
         >
           <SelectValue placeholder="Selecciona el equipo..." />
         </SelectTrigger>
-        <SelectContent className="max-h-[80vh]">
+        <SelectContent>
           {EQUIPMENT_CATEGORIES.map((category) => (
             <SelectGroup key={category.name}>
               <SelectLabel>{category.name}</SelectLabel>

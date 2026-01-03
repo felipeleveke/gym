@@ -172,7 +172,7 @@ export function ExercisesFilters({
                 <SelectTrigger>
                   <SelectValue placeholder="Todos los equipos" />
                 </SelectTrigger>
-                <SelectContent className="max-h-[80vh]">
+                <SelectContent>
                   <SelectItem value="">Todos los equipos</SelectItem>
                   {EQUIPMENT_CATEGORIES.map((category) => (
                     <SelectGroup key={category.name}>
