@@ -66,3 +66,70 @@ export async function suggestExerciseVariations(exerciseName: string): Promise<s
   return [];
 }
 
+export async function parseTrainingProgram(text: string): Promise<any> {
+  const client = getOpenAIClient();
+
+  const response = await client.chat.completions.create({
+    model: 'gpt-4o',
+    messages: [
+      {
+        role: 'system',
+        content: `Parse training program into ULTRA-COMPRESSED JSON using TEMPLATE REFERENCES.
+        
+        Key Insight: Many weeks repeat the same routines. Define each UNIQUE routine ONCE, then reference by ID.
+        
+        Output Structure:
+        {
+          "n": "Program Name",
+          "g": "Goal",
+          "t": { // Templates (unique routines)
+            "t1": {"n": "Legs", "d": "Mon", "e": [["Squat", 3, 10, 12, 65, null]]},
+            "t2": {"n": "Chest", "d": "Wed", "e": [["Bench Press", 3, 10, 12, 65, null]]}
+          },
+          "b": [ // Blocks
+            {
+              "n": "Adaptation",
+              "w": 3, // duration_weeks
+              "s": [ // Schedule (week -> template IDs)
+                {"w": [1, 2], "r": ["t1", "t2"]}, // Weeks 1-2 use templates t1, t2
+                {"w": [3], "r": ["t1", "t2"]} // Week 3 uses same
+              ]
+            }
+          ]
+        }
+        
+        Template Format:
+        - "n": Routine name
+        - "d": Day (Mon/Tue/Wed/Thu/Fri/Sat/Sun)
+        - "e": Exercises as arrays [Name, Sets, RepsMin, RepsMax, Weight%, RPE]
+        
+        Rules:
+        1. Identify UNIQUE routines across all weeks. Give each a template ID (t1, t2, ...).
+        2. If Week 1 Monday = Week 2 Monday = Week 3 Monday, define it ONCE as a template.
+        3. In schedule "s", map week numbers to template IDs.
+        4. Be EXTREMELY aggressive with deduplication.
+        `,
+      },
+      {
+        role: 'user',
+        content: `Parse:\n\n${text}`,
+      },
+    ],
+    temperature: 0.1,
+    max_tokens: 4096,
+    response_format: { type: 'json_object' },
+  });
+
+  try {
+    const content = response.choices[0]?.message?.content;
+    if (content) {
+      return JSON.parse(content);
+    }
+  } catch (error) {
+    console.error('Error parsing OpenAI response:', error);
+    console.error('Partial content:', response.choices[0]?.message?.content?.slice(0, 200) + '...');
+  }
+
+  return null;
+}
+

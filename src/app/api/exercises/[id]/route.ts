@@ -16,7 +16,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, muscle_groups, muscle_groups_json, equipment, instructions } = body;
+    const { name, description, muscle_groups, muscle_groups_json, equipment, instructions, video_url } = body;
 
     console.log('=== PUT /api/exercises/[id] ===');
     console.log('Received body:', JSON.stringify(body, null, 2));
@@ -40,6 +40,7 @@ export async function PUT(
       description: description?.trim() || null,
       equipment: equipment?.trim() || null,
       instructions: instructions?.trim() || null,
+      video_url: video_url?.trim() || null,
       updated_at: new Date().toISOString(),
     };
 
@@ -92,7 +93,7 @@ export async function PUT(
     console.log('About to update with data:', JSON.stringify(updateDataToUse, null, 2));
     
     // Hacer el update con select para ver qué devuelve inmediatamente
-    let selectFields = 'id, name, description, muscle_groups, equipment, instructions';
+    let selectFields = 'id, name, description, muscle_groups, equipment, instructions, video_url';
     if (includeMuscleGroupsJson) {
       selectFields += ', muscle_groups_json';
     }
@@ -176,6 +177,7 @@ export async function PUT(
               muscle_groups_json: updateDataToUse.muscle_groups_json,
               equipment: updateDataToUse.equipment,
               instructions: updateDataToUse.instructions,
+              video_url: updateDataToUse.video_url,
             }
           });
         }
@@ -196,7 +198,7 @@ export async function PUT(
           .from('exercises')
           .update(fallbackData)
           .eq('id', id)
-          .select('id, name, description, muscle_groups, equipment, instructions')
+          .select('id, name, description, muscle_groups, equipment, instructions, video_url')
           .single();
         
         if (fallbackUpdate.error) {
@@ -263,7 +265,7 @@ export async function PUT(
     if (selectError && (selectError.message?.includes('muscle_groups_json') || selectError.code === '42703' || selectError.code === 'PGRST116')) {
       const fallbackSelect = await supabase
         .from('exercises')
-        .select('id, name, description, muscle_groups, equipment, instructions')
+        .select('id, name, description, muscle_groups, equipment, instructions, video_url')
         .eq('id', id)
         .single();
       
@@ -289,6 +291,7 @@ export async function PUT(
           muscle_groups_json: updateData.muscle_groups_json,
           equipment: updateData.equipment,
           instructions: updateData.instructions,
+          video_url: updateData.video_url,
         }
       });
     }

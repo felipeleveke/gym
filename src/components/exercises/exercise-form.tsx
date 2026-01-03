@@ -7,7 +7,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Loader2 } from 'lucide-react';
 import { MuscleGroupSelector, MuscleGroupWithType } from '@/components/trainings/muscle-group-selector';
+import { EquipmentSelector } from './equipment-selector';
 import { Exercise } from '@/hooks/use-exercises';
+import { VideoInput } from './video-input';
 
 interface ExerciseFormProps {
   exercise?: Exercise | null;
@@ -22,6 +24,7 @@ interface ExerciseFormProps {
     }>;
     equipment?: string;
     instructions?: string;
+    video_url?: string;
   }) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -29,18 +32,18 @@ interface ExerciseFormProps {
 
 export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }: ExerciseFormProps) {
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [equipment, setEquipment] = useState('');
   const [instructions, setInstructions] = useState('');
+  const [videoUrl, setVideoUrl] = useState('');
   const [selectedMuscleGroups, setSelectedMuscleGroups] = useState<MuscleGroupWithType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (exercise) {
       setName(exercise.name || '');
-      setDescription(exercise.description || '');
       setEquipment(exercise.equipment || '');
       setInstructions(exercise.instructions || '');
+      setVideoUrl(exercise.video_url || '');
 
       // Convertir muscle_groups_json a MuscleGroupWithType o usar muscle_groups
       let groupsToSet: MuscleGroupWithType[] = [];
@@ -61,9 +64,9 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
     } else {
       // Reset form
       setName('');
-      setDescription('');
       setEquipment('');
       setInstructions('');
+      setVideoUrl('');
       setSelectedMuscleGroups([]);
     }
     setErrors({});
@@ -101,11 +104,11 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
 
     await onSubmit({
       name: name.trim(),
-      description: description.trim() || undefined,
       muscle_groups: muscleGroupsArray,
       muscle_groups_json: muscleGroupsJson,
       equipment: equipment.trim() || undefined,
       instructions: instructions.trim() || undefined,
+      video_url: videoUrl.trim() || undefined,
     });
   };
 
@@ -126,25 +129,25 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="description">Descripción</Label>
+        <Label htmlFor="instructions">Instrucciones</Label>
         <Textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Descripción del ejercicio..."
-          rows={3}
+          id="instructions"
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          placeholder="Instrucciones de ejecución del ejercicio..."
+          rows={4}
         />
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="equipment">Equipo</Label>
-        <Input
-          id="equipment"
-          value={equipment}
-          onChange={(e) => setEquipment(e.target.value)}
-          placeholder="Ej: Barra, Mancuernas, Máquina..."
-        />
+        <VideoInput value={videoUrl} onChange={setVideoUrl} />
       </div>
+
+      <EquipmentSelector 
+        value={equipment} 
+        onChange={setEquipment} 
+        error={errors.equipment}
+      />
 
       <div className="space-y-2">
         <MuscleGroupSelector
@@ -154,17 +157,6 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
         {errors.muscleGroups && (
           <p className="text-sm text-destructive">{errors.muscleGroups}</p>
         )}
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="instructions">Instrucciones</Label>
-        <Textarea
-          id="instructions"
-          value={instructions}
-          onChange={(e) => setInstructions(e.target.value)}
-          placeholder="Instrucciones de ejecución del ejercicio..."
-          rows={4}
-        />
       </div>
 
       <div className="flex gap-2 justify-end pt-4">
@@ -187,6 +179,8 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
     </form>
   );
 }
+
+
 
 
 

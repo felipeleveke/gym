@@ -13,8 +13,9 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { MarkdownNotes } from '@/components/ui/markdown-notes';
-import { Loader2, Edit2, Trash2, Activity, Calendar } from 'lucide-react';
+import { Loader2, Edit2, Trash2, Activity, Calendar, Play } from 'lucide-react';
 import { ExerciseWithStats, ExerciseStats } from '@/hooks/use-exercises';
+import { VideoPlayer } from './video-player';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -160,6 +161,17 @@ export function ExerciseDetailModal({
               <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                 {exercise.instructions}
               </p>
+            </div>
+          )}
+
+          {/* Video de guía */}
+          {exercise.video_url && (
+            <div>
+              <h3 className="font-semibold mb-2 flex items-center gap-2">
+                <Play className="h-4 w-4" />
+                Video de guía
+              </h3>
+              <VideoPlayer url={exercise.video_url} />
             </div>
           )}
 

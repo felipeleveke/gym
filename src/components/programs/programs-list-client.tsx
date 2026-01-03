@@ -34,6 +34,8 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ImportProgramDialog } from '@/components/programs/import-program-dialog';
+import { Sparkles } from 'lucide-react';
 
 interface BlockPhase {
   id: string;
@@ -91,6 +93,7 @@ export function ProgramsListClient() {
   const [programToClone, setProgramToClone] = useState<TrainingProgram | null>(null);
   const [cloneName, setCloneName] = useState('');
   const [cloning, setCloning] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
 
   const fetchPrograms = useCallback(async () => {
     try {
@@ -223,8 +226,30 @@ export function ProgramsListClient() {
     );
   }
 
+
+
+  // ... (after other handle functions)
+
   return (
     <>
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Programas</h2>
+          <p className="text-muted-foreground">
+            Gestiona tus planes de entrenamiento periodizados
+          </p>
+        </div>
+        <div className="flex gap-2">
+           <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+            <Sparkles className="mr-2 h-4 w-4 text-purple-500" />
+            Importar con IA
+          </Button>
+          <Button onClick={() => router.push('/programs/new')}>
+            Crear Programa
+          </Button>
+        </div>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {programs.map((program) => (
           <Card 
@@ -397,6 +422,12 @@ export function ProgramsListClient() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      
+      <ImportProgramDialog 
+        open={importDialogOpen} 
+        onOpenChange={setImportDialogOpen} 
+        onSuccess={fetchPrograms} 
+      />
     </>
   );
 }

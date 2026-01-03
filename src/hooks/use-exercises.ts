@@ -15,6 +15,7 @@ export interface Exercise {
   }>;
   equipment?: string;
   instructions?: string;
+  video_url?: string;
 }
 
 export interface ExerciseStats {
@@ -144,6 +145,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
     }>;
     equipment?: string;
     instructions?: string;
+    video_url?: string;
   }) => {
     try {
       const response = await fetch('/api/exercises', {
@@ -188,6 +190,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
     }>;
     equipment?: string;
     instructions?: string;
+    video_url?: string;
   }) => {
     try {
       const response = await fetch(`/api/exercises/${id}`, {

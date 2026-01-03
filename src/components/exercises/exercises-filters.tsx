@@ -11,9 +11,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Search, X, Filter } from 'lucide-react';
-import { getExistingMuscleGroups, COMMON_MUSCLE_GROUPS } from '@/lib/muscle-groups';
+import { getExistingMuscleGroups, COMMON_MUSCLE_GROUPS, MuscleGroupDB } from '@/lib/muscle-groups';
 import { Badge } from '@/components/ui/badge';
 import { SortOption } from '@/hooks/use-exercises';
+import { SelectGroup, SelectLabel } from '@/components/ui/select';
+import { EQUIPMENT_CATEGORIES } from './equipment-selector';
 
 interface ExercisesFiltersProps {
   search: string;
@@ -40,8 +42,7 @@ export function ExercisesFilters({
   onSortChange,
   exercises,
 }: ExercisesFiltersProps) {
-  const [availableMuscleGroups, setAvailableMuscleGroups] = useState<string[]>([]);
-  const [availableEquipment, setAvailableEquipment] = useState<string[]>([]);
+  const [availableMuscleGroups, setAvailableMuscleGroups] = useState<MuscleGroupDB[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [loadingGroups, setLoadingGroups] = useState(true);
 
@@ -49,16 +50,14 @@ export function ExercisesFilters({
     async function loadMuscleGroups() {
       setLoadingGroups(true);
       try {
-        const existing = await getExistingMuscleGroups();
-        const allGroups = [
-          ...COMMON_MUSCLE_GROUPS.map((mg) => mg.toLowerCase()),
-          ...existing,
-        ];
-        const uniqueGroups = Array.from(new Set(allGroups)).sort();
-        setAvailableMuscleGroups(uniqueGroups);
+        const groups = await getExistingMuscleGroups();
+        setAvailableMuscleGroups(groups);
       } catch (error) {
         console.error('Error loading muscle groups:', error);
-        setAvailableMuscleGroups(COMMON_MUSCLE_GROUPS.map((mg) => mg.toLowerCase()));
+        setAvailableMuscleGroups(COMMON_MUSCLE_GROUPS.map((mg) => ({
+          name: mg.toLowerCase(),
+          category: 'Tren Superior'
+        })));
       } finally {
         setLoadingGroups(false);
       }
@@ -66,16 +65,7 @@ export function ExercisesFilters({
     loadMuscleGroups();
   }, []);
 
-  useEffect(() => {
-    // Extraer equipos únicos de los ejercicios
-    const equipmentSet = new Set<string>();
-    exercises.forEach((ex) => {
-      if (ex.equipment && ex.equipment.trim()) {
-        equipmentSet.add(ex.equipment.trim());
-      }
-    });
-    setAvailableEquipment(Array.from(equipmentSet).sort());
-  }, [exercises]);
+
 
   const hasActiveFilters = selectedMuscleGroup !== '' || selectedEquipment !== '' || sortBy !== 'name';
 
@@ -151,11 +141,25 @@ export function ExercisesFilters({
                       Cargando...
                     </SelectItem>
                   ) : (
-                    availableMuscleGroups.map((group) => (
-                      <SelectItem key={group} value={group}>
-                        {group.charAt(0).toUpperCase() + group.slice(1)}
-                      </SelectItem>
-                    ))
+                    <>
+                      {(['Tren Superior', 'Tren Inferior', 'Zona Media'] as const).map((cat) => {
+                        const groupsInCat = availableMuscleGroups.filter(g => g.category === cat);
+                        if (groupsInCat.length === 0) return null;
+
+                        return (
+                          <SelectGroup key={cat}>
+                            <SelectLabel className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-2 py-1.5">
+                              {cat}
+                            </SelectLabel>
+                            {groupsInCat.map((group) => (
+                              <SelectItem key={group.name} value={group.name}>
+                                {group.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        );
+                      })}
+                    </>
                   )}
                 </SelectContent>
               </Select>
@@ -168,12 +172,17 @@ export function ExercisesFilters({
                 <SelectTrigger>
                   <SelectValue placeholder="Todos los equipos" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="max-h-[80vh]">
                   <SelectItem value="">Todos los equipos</SelectItem>
-                  {availableEquipment.map((equipment) => (
-                    <SelectItem key={equipment} value={equipment}>
-                      {equipment}
-                    </SelectItem>
+                  {EQUIPMENT_CATEGORIES.map((category) => (
+                    <SelectGroup key={category.name}>
+                      <SelectLabel>{category.name}</SelectLabel>
+                      {category.items.map((item) => (
+                        <SelectItem key={item.name} value={item.name}>
+                          {item.name}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
                   ))}
                 </SelectContent>
               </Select>
