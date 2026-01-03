@@ -16,7 +16,7 @@ export async function PUT(
     }
 
     const body = await request.json();
-    const { name, description, muscle_groups, muscle_groups_json, equipment, instructions, video_url } = body;
+    const { name, description, muscle_groups, muscle_groups_json, equipment, instructions, video_url, training_type } = body;
 
     console.log('=== PUT /api/exercises/[id] ===');
     console.log('Received body:', JSON.stringify(body, null, 2));
@@ -41,6 +41,7 @@ export async function PUT(
       equipment: equipment?.trim() || null,
       instructions: instructions?.trim() || null,
       video_url: video_url?.trim() || null,
+      training_type: training_type || undefined, // Solo actualizar si se proporciona
       updated_at: new Date().toISOString(),
     };
 

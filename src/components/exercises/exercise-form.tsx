@@ -10,6 +10,7 @@ import { MuscleGroupSelector, MuscleGroupWithType } from '@/components/trainings
 import { EquipmentSelector } from './equipment-selector';
 import { Exercise } from '@/hooks/use-exercises';
 import { VideoInput } from './video-input';
+import { TrainingTypeSelector, TrainingType } from './training-type-selector';
 
 interface ExerciseFormProps {
   exercise?: Exercise | null;
@@ -25,6 +26,7 @@ interface ExerciseFormProps {
     equipment?: string;
     instructions?: string;
     video_url?: string;
+    training_type?: TrainingType;
   }) => Promise<void>;
   onCancel?: () => void;
   isLoading?: boolean;
@@ -35,6 +37,7 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
   const [equipment, setEquipment] = useState('');
   const [instructions, setInstructions] = useState('');
   const [videoUrl, setVideoUrl] = useState('');
+  const [trainingType, setTrainingType] = useState<TrainingType>('gym');
   const [selectedMuscleGroups, setSelectedMuscleGroups] = useState<MuscleGroupWithType[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -44,6 +47,7 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
       setEquipment(exercise.equipment || '');
       setInstructions(exercise.instructions || '');
       setVideoUrl(exercise.video_url || '');
+      setTrainingType(exercise.training_type || 'gym');
 
       // Convertir muscle_groups_json a MuscleGroupWithType o usar muscle_groups
       let groupsToSet: MuscleGroupWithType[] = [];
@@ -67,6 +71,7 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
       setEquipment('');
       setInstructions('');
       setVideoUrl('');
+      setTrainingType('gym');
       setSelectedMuscleGroups([]);
     }
     setErrors({});
@@ -109,6 +114,7 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
       equipment: equipment.trim() || undefined,
       instructions: instructions.trim() || undefined,
       video_url: videoUrl.trim() || undefined,
+      training_type: trainingType,
     });
   };
 
@@ -127,6 +133,12 @@ export function ExerciseForm({ exercise, onSubmit, onCancel, isLoading = false }
         />
         {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
       </div>
+
+      <TrainingTypeSelector
+        value={trainingType}
+        onChange={setTrainingType}
+        error={errors.trainingType}
+      />
 
       <div className="space-y-2">
         <Label htmlFor="instructions">Instrucciones</Label>

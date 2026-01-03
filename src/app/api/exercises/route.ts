@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     // Intentar primero con muscle_groups_json (nueva estructura)
     let query = supabase
       .from('exercises')
-      .select('id, name, description, muscle_groups, muscle_groups_json, equipment, video_url')
+      .select('id, name, description, muscle_groups, muscle_groups_json, equipment, video_url, training_type')
       .order('name', { ascending: true });
 
     if (search) {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (error && (error.message?.includes('muscle_groups_json') || error.code === '42703' || error.code === 'PGRST116')) {
       const fallbackQuery = supabase
         .from('exercises')
-        .select('id, name, description, muscle_groups, equipment, video_url')
+        .select('id, name, description, muscle_groups, equipment, video_url, training_type')
         .order('name', { ascending: true });
       
       if (search) {
@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, muscle_groups, muscle_groups_json, equipment, instructions, video_url } = body;
+    const { name, description, muscle_groups, muscle_groups_json, equipment, instructions, video_url, training_type } = body;
 
     // Validar que haya al menos un grupo muscular
     const hasMuscleGroups = (muscle_groups && muscle_groups.length > 0) || 
@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
       equipment: equipment?.trim() || null,
       instructions: instructions?.trim() || null,
       video_url: video_url?.trim() || null,
+      training_type: training_type || 'gym', // Por defecto gimnasio
       created_by: user.id, // Asignar el ejercicio al usuario que lo crea
     };
 

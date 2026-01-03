@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
+export type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other';
+
 export interface Exercise {
   id: string;
   name: string;
@@ -16,6 +18,7 @@ export interface Exercise {
   equipment?: string;
   instructions?: string;
   video_url?: string;
+  training_type?: TrainingType;
 }
 
 export interface ExerciseStats {
@@ -146,6 +149,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
     equipment?: string;
     instructions?: string;
     video_url?: string;
+    training_type?: TrainingType;
   }) => {
     try {
       const response = await fetch('/api/exercises', {
@@ -191,6 +195,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
     equipment?: string;
     instructions?: string;
     video_url?: string;
+    training_type?: TrainingType;
   }) => {
     try {
       const response = await fetch(`/api/exercises/${id}`, {
