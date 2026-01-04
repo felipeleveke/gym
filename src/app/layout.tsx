@@ -5,6 +5,7 @@ import { Providers } from '@/components/providers';
 import { Toaster } from '@/components/ui/toaster';
 import { PWARegister } from '@/components/pwa-register';
 import { SidebarWrapper } from '@/components/sidebar-wrapper';
+import { ModeToggle } from '@/components/mode-toggle';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -40,6 +41,9 @@ export default function RootLayout({
           </SidebarWrapper>
           <Toaster />
           <PWARegister />
+          <div className="fixed bottom-4 right-4 z-50">
+            <ModeToggle />
+          </div>
         </Providers>
       </body>
     </html>
