@@ -1,5 +1,5 @@
-// Tipos de entrenamiento
-export type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other';
+// Tipos de entrenamiento (sincronizados con la tabla training_types en la BD)
+export type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other' | 'warmup' | 'circuit';
 
 // Tipo de ejercicio en gimnasio
 export interface GymExercise {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 
-export type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other';
+export type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other' | 'warmup' | 'circuit';
 
 export interface Exercise {
   id: string;

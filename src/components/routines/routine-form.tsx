@@ -28,6 +28,34 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Switch } from '@/components/ui/switch';
+import { useTrainingTypes } from '@/hooks/use-training-types';
+import { 
+  Dumbbell, 
+  Heart, 
+  Trophy, 
+  Sparkles, 
+  HelpCircle, 
+  Flame, 
+  Zap,
+  Activity 
+} from 'lucide-react';
+
+// Mapeo de nombres de iconos a componentes
+const ICON_MAP: Record<string, React.ReactNode> = {
+  'Dumbbell': <Dumbbell className="h-4 w-4" />,
+  'Heart': <Heart className="h-4 w-4" />,
+  'Trophy': <Trophy className="h-4 w-4" />,
+  'Sparkles': <Sparkles className="h-4 w-4" />,
+  'HelpCircle': <HelpCircle className="h-4 w-4" />,
+  'Flame': <Flame className="h-4 w-4" />,
+  'Zap': <Zap className="h-4 w-4" />,
+  'Activity': <Activity className="h-4 w-4" />,
+};
+
+const getIcon = (iconName: string | null) => {
+  if (!iconName) return <HelpCircle className="h-4 w-4" />;
+  return ICON_MAP[iconName] || <HelpCircle className="h-4 w-4" />;
+};
 
 interface Exercise {
   id: string;
@@ -41,8 +69,11 @@ interface VariantSet {
   set_number: number;
   target_reps: number | null;
   target_rir: number | null;
+  target_rpe: number | null;
   target_weight_percent: number | null;
   target_weight: number | null;
+  target_tut: string | null;
+  rest_seconds: number | null;
   set_type: 'warmup' | 'approach' | 'working' | 'backoff' | 'bilbo';
   notes?: string;
 }
@@ -51,6 +82,7 @@ interface VariantExercise {
   exercise: Exercise;
   order_index: number;
   notes?: string;
+  rest_after_exercise?: number | null;
   sets: VariantSet[];
 }
 
@@ -69,13 +101,18 @@ interface RoutineExerciseItem {
   default_sets: number;
   default_reps?: number | null;
   default_weight?: number | null;
+  default_rir?: number | null;
+  default_rpe?: number | null;
+  default_tut?: string | null; // Tiempo bajo tensión (ej: "3-1-2-0")
+  rest_between_sets?: number | null; // Segundos de descanso entre series
+  rest_after_exercise?: number | null; // Segundos de descanso después del ejercicio
   notes?: string;
 }
 
 const routineSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido'),
   description: z.string().optional(),
-  type: z.enum(['gym', 'sport', 'cardio', 'flexibility', 'other']),
+  type: z.string().min(1, 'El tipo es requerido'), // Ahora es dinámico desde la BD
 });
 
 type RoutineFormData = z.infer<typeof routineSchema>;
@@ -87,6 +124,7 @@ interface RoutineFormProps {
 export function RoutineForm({ routineId }: RoutineFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { trainingTypes, isLoading: isLoadingTypes } = useTrainingTypes();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(!!routineId);
   
@@ -208,6 +246,11 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
       default_sets: 3,
       default_reps: 10,
       default_weight: null,
+      default_rir: 2,
+      default_rpe: null,
+      default_tut: null,
+      rest_between_sets: 90,
+      rest_after_exercise: 120,
       notes: '',
     };
     setExercises([...exercises, newExercise]);
@@ -316,12 +359,16 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
           exercise: ex.exercise,
           order_index: index,
           notes: ex.notes,
+          rest_after_exercise: ex.rest_after_exercise ?? 120,
           sets: Array.from({ length: ex.default_sets }, (_, i) => ({
             set_number: i + 1,
             target_reps: ex.default_reps || 10,
-            target_rir: 2,
+            target_rir: ex.default_rir ?? 2,
+            target_rpe: ex.default_rpe ?? null,
             target_weight_percent: null,
             target_weight: ex.default_weight ?? null,
+            target_tut: ex.default_tut ?? null,
+            rest_seconds: ex.rest_between_sets ?? 90,
             set_type: 'working' as const,
           })),
         })),
@@ -518,19 +565,23 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
             <div className="grid gap-2">
               <Label htmlFor="type">Tipo de Entrenamiento</Label>
               <Select
-                onValueChange={(value) => setValue('type', value as any)}
+                onValueChange={(value) => setValue('type', value)}
                 defaultValue={selectedType}
-                value={selectedType} 
+                value={selectedType}
+                disabled={isLoadingTypes}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un tipo" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gym">Gimnasio / Pesas</SelectItem>
-                  <SelectItem value="cardio">Cardio</SelectItem>
-                  <SelectItem value="sport">Deporte</SelectItem>
-                  <SelectItem value="flexibility">Flexibilidad</SelectItem>
-                  <SelectItem value="other">Otro</SelectItem>
+                  {trainingTypes.map((type) => (
+                    <SelectItem key={type.value} value={type.value}>
+                      <div className="flex items-center gap-2">
+                        {getIcon(type.icon)}
+                        <span>{type.label}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               {errors.type && (
@@ -706,7 +757,103 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
                               placeholder="Opcional"
                             />
                           </div>
+                          <div>
+                            <Label className="text-xs">RIR</Label>
+                            <Select
+                              value={item.default_rir?.toString() || ''}
+                              onValueChange={(v) =>
+                                updateExerciseField(
+                                  item.id,
+                                  'default_rir',
+                                  v ? parseInt(v) : null
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[0, 1, 2, 3, 4, 5].map((rir) => (
+                                  <SelectItem key={rir} value={rir.toString()}>
+                                    {rir}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
+                        
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <Label className="text-xs">RPE</Label>
+                            <Select
+                              value={item.default_rpe?.toString() || ''}
+                              onValueChange={(v) =>
+                                updateExerciseField(
+                                  item.id,
+                                  'default_rpe',
+                                  v ? parseFloat(v) : null
+                                )
+                              }
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Seleccionar" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((rpe) => (
+                                  <SelectItem key={rpe} value={rpe.toString()}>
+                                    {rpe}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">TUT (Tempo)</Label>
+                            <Input
+                              value={item.default_tut || ''}
+                              onChange={(e) =>
+                                updateExerciseField(item.id, 'default_tut', e.target.value || null)
+                              }
+                              placeholder="Ej: 3-1-2-0"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Descanso Serie (seg)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="5"
+                              value={item.rest_between_sets || ''}
+                              onChange={(e) =>
+                                updateExerciseField(
+                                  item.id,
+                                  'rest_between_sets',
+                                  e.target.value ? parseInt(e.target.value) : null
+                                )
+                              }
+                              placeholder="Ej: 90"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Descanso Ejercicio (seg)</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="5"
+                              value={item.rest_after_exercise || ''}
+                              onChange={(e) =>
+                                updateExerciseField(
+                                  item.id,
+                                  'rest_after_exercise',
+                                  e.target.value ? parseInt(e.target.value) : null
+                                )
+                              }
+                              placeholder="Ej: 120"
+                            />
+                          </div>
+                        </div>
+
                         <div>
                           <Label className="text-xs">Notas</Label>
                           <Input

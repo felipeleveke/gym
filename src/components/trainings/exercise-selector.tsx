@@ -3,8 +3,11 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { VideoPlayer } from '@/components/exercises/video-player';
 import { Card, CardContent } from '@/components/ui/card';
-import { Loader2, Plus, Search, X, Edit2, Trash2 } from 'lucide-react';
+import { Loader2, Plus, Search, X, Edit2, Trash2, Eye, Dumbbell, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { MuscleGroupSelector, MuscleGroupWithType } from './muscle-group-selector';
 import {
@@ -28,6 +31,8 @@ interface Exercise {
     percentage: number;
   }>;
   equipment?: string;
+  instructions?: string;
+  video_url?: string;
 }
 
 interface ExerciseSelectorProps {
@@ -51,6 +56,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
   const [deleteConfirmStep, setDeleteConfirmStep] = useState(0); // 0: inicial, 1: primera confirmación, 2: segunda confirmación
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
+  const [previewingExercise, setPreviewingExercise] = useState<Exercise | null>(null);
   const { toast } = useToast();
 
   // Cargar todos los ejercicios al montar el componente
@@ -497,39 +503,57 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
                   className="flex-1 text-left"
                 >
                   <div className="font-medium">{exercise.name}</div>
-                  {(exercise.muscle_groups_json || exercise.muscle_groups) && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {/* Priorizar muscle_groups_json si existe y tiene datos */}
-                      {exercise.muscle_groups_json && 
-                       Array.isArray(exercise.muscle_groups_json) && 
-                       exercise.muscle_groups_json.length > 0 ? (
-                        exercise.muscle_groups_json.map((mg: any, idx: number) => {
-                          const typeColors: Record<string, string> = {
-                            primary: 'bg-primary/20 text-primary',
-                            secondary: 'bg-blue-500/20 text-blue-600',
-                            tertiary: 'bg-purple-500/20 text-purple-600',
-                          };
-                          return (
-                            <span
-                              key={idx}
-                              className={`text-xs px-1.5 py-0.5 rounded ${typeColors[mg.type] || 'bg-muted'}`}
-                            >
-                              {mg.name} ({mg.percentage}%)
-                            </span>
-                          );
-                        })
-                      ) : (
-                        /* Fallback para formato antiguo */
-                        exercise.muscle_groups && exercise.muscle_groups.map((mg: string, idx: number) => (
-                          <span key={idx} className="text-xs text-muted-foreground">
-                            {mg}
+                  <div className="flex flex-wrap gap-1 mt-1 items-center">
+                    {/* Mostrar equipo si existe */}
+                    {exercise.equipment && (
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-600 dark:text-orange-400 flex items-center gap-1">
+                        <Dumbbell className="h-3 w-3" />
+                        {exercise.equipment}
+                      </span>
+                    )}
+                    {/* Priorizar muscle_groups_json si existe y tiene datos */}
+                    {exercise.muscle_groups_json && 
+                     Array.isArray(exercise.muscle_groups_json) && 
+                     exercise.muscle_groups_json.length > 0 ? (
+                      exercise.muscle_groups_json.map((mg: any, idx: number) => {
+                        const typeColors: Record<string, string> = {
+                          primary: 'bg-primary/20 text-primary',
+                          secondary: 'bg-blue-500/20 text-blue-600',
+                          tertiary: 'bg-purple-500/20 text-purple-600',
+                        };
+                        return (
+                          <span
+                            key={idx}
+                            className={`text-xs px-1.5 py-0.5 rounded ${typeColors[mg.type] || 'bg-muted'}`}
+                          >
+                            {mg.name} ({mg.percentage}%)
                           </span>
-                        ))
-                      )}
-                    </div>
-                  )}
+                        );
+                      })
+                    ) : (
+                      /* Fallback para formato antiguo */
+                      exercise.muscle_groups && exercise.muscle_groups.map((mg: string, idx: number) => (
+                        <span key={idx} className="text-xs text-muted-foreground">
+                          {mg}
+                        </span>
+                      ))
+                    )}
+                  </div>
                 </button>
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {/* Botón de vista previa */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-blue-600 hover:text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPreviewingExercise(exercise);
+                    }}
+                    title="Ver detalle del ejercicio"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -674,6 +698,139 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
               ) : (
                 'Eliminar Permanentemente'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog de vista previa del ejercicio */}
+      <Dialog open={!!previewingExercise} onOpenChange={(open) => !open && setPreviewingExercise(null)}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-xl flex items-center gap-2">
+              <Eye className="h-5 w-5 text-blue-600" />
+              {previewingExercise?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Información detallada del ejercicio
+            </DialogDescription>
+          </DialogHeader>
+
+          {previewingExercise && (
+            <div className="space-y-5">
+              {/* Video de guía */}
+              {previewingExercise.video_url && (
+                <div>
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <Play className="h-4 w-4" />
+                    Video de guía
+                  </h3>
+                  <VideoPlayer url={previewingExercise.video_url} />
+                </div>
+              )}
+
+              {/* Equipo necesario */}
+              {previewingExercise.equipment && (
+                <div>
+                  <h3 className="font-semibold mb-2 flex items-center gap-2">
+                    <Dumbbell className="h-4 w-4" />
+                    Equipo necesario
+                  </h3>
+                  <Badge variant="secondary" className="bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/30">
+                    {previewingExercise.equipment}
+                  </Badge>
+                </div>
+              )}
+
+              {/* Instrucciones */}
+              {previewingExercise.instructions && (
+                <div>
+                  <h3 className="font-semibold mb-2">Instrucciones</h3>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap bg-muted/30 p-3 rounded-md">
+                    {previewingExercise.instructions}
+                  </p>
+                </div>
+              )}
+
+              {/* Descripción */}
+              {previewingExercise.description && (
+                <div>
+                  <h3 className="font-semibold mb-2">Descripción</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {previewingExercise.description}
+                  </p>
+                </div>
+              )}
+
+              <Separator />
+
+              {/* Grupos Musculares */}
+              <div>
+                <h3 className="font-semibold mb-3">Grupos Musculares</h3>
+                <div className="space-y-2">
+                  {previewingExercise.muscle_groups_json && 
+                   Array.isArray(previewingExercise.muscle_groups_json) && 
+                   previewingExercise.muscle_groups_json.length > 0 ? (
+                    previewingExercise.muscle_groups_json.map((mg: any, idx: number) => {
+                      const typeColors: Record<string, string> = {
+                        primary: 'bg-primary/20 text-primary',
+                        secondary: 'bg-blue-500/20 text-blue-600',
+                        tertiary: 'bg-purple-500/20 text-purple-600',
+                      };
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-2 rounded-md bg-muted/30">
+                          <Badge className={`${typeColors[mg.type] || 'bg-muted'}`}>
+                            {mg.name}
+                          </Badge>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span className="capitalize">
+                              {mg.type === 'primary' ? 'Primario' : mg.type === 'secondary' ? 'Secundario' : 'Terciario'}
+                            </span>
+                            <span>{mg.percentage}%</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : previewingExercise.muscle_groups && previewingExercise.muscle_groups.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {previewingExercise.muscle_groups.map((mg: string, idx: number) => (
+                        <Badge key={idx} variant="outline">
+                          {mg}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No especificado</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Mensaje si no hay contenido */}
+              {!previewingExercise.video_url && !previewingExercise.instructions && !previewingExercise.description && (
+                <div className="text-center py-4 text-muted-foreground">
+                  <p>Este ejercicio aún no tiene video ni instrucciones.</p>
+                  <p className="text-sm mt-1">Puedes editarlo para agregar más información.</p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (previewingExercise) {
+                  onSelect(previewingExercise);
+                  setPreviewingExercise(null);
+                  onClose();
+                }
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Agregar a la rutina
+            </Button>
+            <Button variant="secondary" onClick={() => setPreviewingExercise(null)}>
+              Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>

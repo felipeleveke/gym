@@ -37,8 +37,11 @@ interface VariantSet {
   set_number: number;
   target_reps: number | null;
   target_rir: number | null;
+  target_rpe: number | null; // Rate of Perceived Exertion (6-10)
   target_weight_percent: number | null;
   target_weight: number | null;
+  target_tut: string | null; // Time Under Tension (ej: "3-1-2-0")
+  rest_seconds: number | null; // Descanso después de esta serie
   theoretical_one_rm?: number | null; // Calculated 1RM (not stored in DB, computed on the fly)
   set_type: 'warmup' | 'approach' | 'working' | 'backoff' | 'bilbo';
   notes?: string;
@@ -49,6 +52,7 @@ interface VariantExercise {
   exercise: Exercise;
   order_index: number;
   notes?: string;
+  rest_after_exercise?: number | null; // Descanso después del ejercicio en segundos
   sets: VariantSet[];
 }
 
@@ -108,13 +112,17 @@ export function VariantEditor({
     const newExercise: VariantExercise = {
       exercise,
       order_index: variant.exercises.length,
+      rest_after_exercise: 120,
           sets: [
         {
           set_number: 1,
           target_reps: 10,
           target_rir: 2,
+          target_rpe: null,
           target_weight_percent: null, // Will be calculated when weight is entered
           target_weight: null,
+          target_tut: null,
+          rest_seconds: 90,
           set_type: 'working',
         },
       ],
@@ -156,8 +164,11 @@ export function VariantEditor({
       set_number: exercise.sets.length + 1,
       target_reps: lastSet?.target_reps || 10,
       target_rir: lastSet?.target_rir || 2,
+      target_rpe: lastSet?.target_rpe || null,
       target_weight_percent: null, // Will be calculated when weight and reps are both present
       target_weight: lastSet?.target_weight || null,
+      target_tut: lastSet?.target_tut || null,
+      rest_seconds: lastSet?.rest_seconds || 90,
       set_type: lastSet?.set_type || 'working',
     };
     // If the new set has both weight and reps, calculate %RM immediately
@@ -348,22 +359,41 @@ export function VariantEditor({
 
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-semibold">{exercise.exercise.name}</h4>
                         <p className="text-sm text-muted-foreground">
                           {exercise.exercise.muscle_groups?.join(', ')}
                         </p>
                       </div>
                       {!isReadOnly && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="text-destructive hover:bg-destructive/10"
-                          onClick={() => handleRemoveExercise(exIndex)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1">
+                            <Label className="text-xs text-muted-foreground whitespace-nowrap">Descanso post-ejercicio:</Label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="5"
+                              value={exercise.rest_after_exercise || ''}
+                              onChange={(e) =>
+                                handleUpdateExercise(exIndex, {
+                                  rest_after_exercise: e.target.value ? parseInt(e.target.value) : null,
+                                })
+                              }
+                              className="h-8 w-20 text-center"
+                              placeholder="120"
+                            />
+                            <span className="text-xs text-muted-foreground">seg</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="text-destructive hover:bg-destructive/10"
+                            onClick={() => handleRemoveExercise(exIndex)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       )}
                     </div>
 
@@ -379,6 +409,9 @@ export function VariantEditor({
                             <th className="text-center py-2 px-1">RIR</th>
                             <th className="text-center py-2 px-1">% 1RM</th>
                             <th className="text-center py-2 px-1">1RM</th>
+                            <th className="text-center py-2 px-1">RPE</th>
+                            <th className="text-center py-2 px-1">TUT</th>
+                            <th className="text-center py-2 px-1">Descanso</th>
                             {!isReadOnly && <th className="w-10"></th>}
                           </tr>
                         </thead>
@@ -519,6 +552,69 @@ export function VariantEditor({
                                       <span className="text-muted-foreground">-</span>
                                     );
                                   })()}
+                                </td>
+                                {/* RPE */}
+                                <td className="py-2 px-1 text-center">
+                                  {isReadOnly ? (
+                                    set.target_rpe !== null ? set.target_rpe : '-'
+                                  ) : (
+                                    <Select
+                                      value={set.target_rpe?.toString() || ''}
+                                      onValueChange={(v) =>
+                                        handleUpdateSet(exIndex, setIndex, {
+                                          target_rpe: v ? parseFloat(v) : null,
+                                        })
+                                      }
+                                    >
+                                      <SelectTrigger className="h-8 w-16">
+                                        <SelectValue placeholder="-" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((rpe) => (
+                                          <SelectItem key={rpe} value={rpe.toString()}>
+                                            {rpe}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </td>
+                                {/* TUT */}
+                                <td className="py-2 px-1 text-center">
+                                  {isReadOnly ? (
+                                    set.target_tut || '-'
+                                  ) : (
+                                    <Input
+                                      value={set.target_tut || ''}
+                                      onChange={(e) =>
+                                        handleUpdateSet(exIndex, setIndex, {
+                                          target_tut: e.target.value || null,
+                                        })
+                                      }
+                                      className="h-8 w-24 text-center"
+                                      placeholder="3-1-2-0"
+                                    />
+                                  )}
+                                </td>
+                                {/* Descanso */}
+                                <td className="py-2 px-1 text-center">
+                                  {isReadOnly ? (
+                                    set.rest_seconds !== null ? `${set.rest_seconds}s` : '-'
+                                  ) : (
+                                    <Input
+                                      type="number"
+                                      min="0"
+                                      step="5"
+                                      value={set.rest_seconds || ''}
+                                      onChange={(e) =>
+                                        handleUpdateSet(exIndex, setIndex, {
+                                          rest_seconds: e.target.value ? parseInt(e.target.value) : null,
+                                        })
+                                      }
+                                      className="h-8 w-16 text-center"
+                                      placeholder="90"
+                                    />
+                                  )}
                                 </td>
                                 {!isReadOnly && (
                                   <td className="py-2 px-1">

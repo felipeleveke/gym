@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
     // Intentar primero con muscle_groups_json (nueva estructura)
     let query = supabase
       .from('exercises')
-      .select('id, name, description, muscle_groups, muscle_groups_json, equipment, video_url, training_type')
+      .select('id, name, description, muscle_groups, muscle_groups_json, equipment, instructions, video_url, training_type')
       .order('name', { ascending: true });
 
     if (search) {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (error && (error.message?.includes('muscle_groups_json') || error.code === '42703' || error.code === 'PGRST116')) {
       const fallbackQuery = supabase
         .from('exercises')
-        .select('id, name, description, muscle_groups, equipment, video_url, training_type')
+        .select('id, name, description, muscle_groups, equipment, instructions, video_url, training_type')
         .order('name', { ascending: true });
       
       if (search) {
