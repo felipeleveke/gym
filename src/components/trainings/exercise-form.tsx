@@ -25,10 +25,14 @@ interface ExerciseSet {
   duration?: number | null;
   rest_time?: number | null;
   rir?: number | null;
+  rpe?: number | null;
   notes?: string | null;
   set_type?: SetType | null;
   theoretical_one_rm?: number | null;
   percentage_one_rm?: number | null;
+  // Campos de temporización desde la rutina
+  target_tut?: number | null; // Tiempo bajo tensión objetivo (cuenta regresiva al iniciar)
+  target_rest?: number | null; // Descanso entre series objetivo
 }
 
 interface Exercise {
@@ -46,6 +50,7 @@ interface ExerciseFormProps {
   notes?: string;
   isLastExercise: boolean;
   defaultRestTime?: number;
+  restAfterExercise?: number | null;
   isGeneratingSummary?: boolean;
   globalActiveSetId?: string | null;
   globalRestingSetId?: string | null;
@@ -87,6 +92,7 @@ export function ExerciseForm({
   notes,
   isLastExercise,
   defaultRestTime = 60,
+  restAfterExercise,
   isGeneratingSummary = false,
   globalActiveSetId,
   globalRestingSetId,
@@ -510,7 +516,7 @@ export function ExerciseForm({
                     </div>
                     
                     {/* RIR */}
-                    <div className="col-span-1 sm:col-span-1 md:col-span-2">
+                    <div className="col-span-1 sm:col-span-1 md:col-span-1">
                       <Label htmlFor={`rir-${set.id}`} className="text-xs">
                         RIR
                       </Label>
@@ -528,7 +534,30 @@ export function ExerciseForm({
                             e.target.value ? parseInt(e.target.value) : null
                           )
                         }
-                        className="h-8 sm:h-9 text-sm"
+                        className="h-8 sm:h-9 text-xs px-1"
+                      />
+                    </div>
+
+                    {/* RPE */}
+                    <div className="col-span-1 sm:col-span-1 md:col-span-1">
+                      <Label htmlFor={`rpe-${set.id}`} className="text-xs">
+                        RPE
+                      </Label>
+                      <Input
+                        id={`rpe-${set.id}`}
+                        type="number"
+                        min="1"
+                        max="10"
+                        placeholder="1"
+                        value={set.rpe ?? ''}
+                        onChange={(e) =>
+                          updateSet(
+                            set.id,
+                            'rpe',
+                            e.target.value ? parseInt(e.target.value) : null
+                          )
+                        }
+                        className="h-8 sm:h-9 text-xs px-1"
                       />
                     </div>
                     
@@ -541,13 +570,15 @@ export function ExerciseForm({
                         activeSetId={globalActiveSetId}
                         restingSetId={globalRestingSetId}
                         defaultRestTime={defaultRestTime}
+                        targetTut={set.target_tut}
+                        targetRest={index === sets.length - 1 ? (restAfterExercise ?? set.target_rest) : set.target_rest}
                         weight={set.weight}
                         reps={set.reps}
                         rir={set.rir}
                         canStart={
                           index === 0 
                             ? true 
-                            : completedSetIds.has(sets[index - 1].id) || restingSetId === sets[index - 1].id
+                            : completedSetIds.has(sets[index - 1].id) || globalRestingSetId === sets[index - 1].id
                         }
                         onExerciseTimeUpdate={(seconds) => {
                           updateSet(set.id, 'duration', seconds);

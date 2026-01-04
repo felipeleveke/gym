@@ -37,10 +37,14 @@ interface ExerciseSet {
   duration?: number | null;
   rest_time?: number | null;
   rir?: number | null;
+  rpe?: number | null;
   notes?: string | null;
   set_type?: 'warmup' | 'approach' | 'working' | 'bilbo' | null;
   theoretical_one_rm?: number | null;
   percentage_one_rm?: number | null;
+  // Campos de temporización desde la rutina
+  target_tut?: number | null; // Tiempo bajo tensión objetivo (cuenta regresiva al iniciar)
+  target_rest?: number | null; // Descanso entre series objetivo
 }
 
 interface TrainingExercise {
@@ -49,6 +53,8 @@ interface TrainingExercise {
   notes: string;
   start_time?: string | null;
   end_time?: string | null;
+  // Campos de temporización desde la rutina
+  rest_after_exercise?: number | null; // Descanso después del ejercicio
 }
 
 const gymTrainingSchema = z.object({
@@ -60,7 +66,13 @@ type GymTrainingFormData = z.infer<typeof gymTrainingSchema>;
 
 interface GymTrainingFormDetailedProps {
   onBack: () => void;
-  initialData?: any;
+  initialData?: {
+    training_exercises?: any[];
+    start_time?: string | null;
+    end_time?: string | null;
+    notes?: string;
+    tags?: string[] | string;
+  };
   trainingId?: string;
   routineId?: string;
   variantId?: string;       // For loading from a specific variant
@@ -163,8 +175,21 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
         // Pre-poblar ejercicios desde la rutina
         if (routine.routine_exercises && Array.isArray(routine.routine_exercises)) {
           const routineExercises: TrainingExercise[] = routine.routine_exercises
-            .sort((a: any, b: any) => a.order_index - b.order_index)
-            .map((re: any) => {
+            .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
+            .map((re: {
+              exercise_id: string;
+              order_index: number;
+              default_sets?: number;
+              default_reps?: number;
+              default_weight?: number;
+              default_rir?: number;
+              default_rpe?: number;
+              default_tut?: number;
+              rest_between_sets?: number;
+              rest_after_exercise?: number;
+              notes?: string;
+              exercise?: Exercise;
+            }) => {
               const exerciseId = re.exercise_id;
               const history = exerciseStats[exerciseId] || {};
               const setHistory = exerciseSetStats[exerciseId] || {};
@@ -181,7 +206,12 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                   set_number: setNumber,
                   weight: setWeight,
                   reps: re.default_reps || null,
+                  rir: re.default_rir ?? null,
+                  rpe: re.default_rpe ?? null,
                   set_type: 'working' as const,
+                  // Campos de temporización desde la rutina
+                  target_tut: re.default_tut || null,
+                  target_rest: re.rest_between_sets || null,
                 };
               });
               
@@ -194,6 +224,8 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                 notes: re.notes || '',
                 start_time: null,
                 end_time: null,
+                // Descanso después del ejercicio
+                rest_after_exercise: re.rest_after_exercise || null,
               };
             });
           
@@ -238,18 +270,39 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
         // Pre-poblar ejercicios desde la variante
         if (variant.variant_exercises && Array.isArray(variant.variant_exercises)) {
           const variantExercises: TrainingExercise[] = variant.variant_exercises
-            .sort((a: any, b: any) => a.order_index - b.order_index)
-            .map((ve: any) => {
+            .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
+            .map((ve: {
+              order_index: number;
+              exercise_id: string;
+              exercise?: Exercise;
+              variant_exercise_sets?: any[];
+              notes?: string;
+              rest_after_exercise?: number;
+            }) => {
               const sets = (ve.variant_exercise_sets || [])
-                .sort((a: any, b: any) => a.set_number - b.set_number)
-                .map((set: any) => ({
+                .sort((a: { set_number: number }, b: { set_number: number }) => a.set_number - b.set_number)
+                .map((set: {
+                  set_number: number;
+                  target_weight?: number;
+                  target_reps?: number;
+                  target_rir?: number;
+                  target_rpe?: number;
+                  set_type?: string;
+                  notes?: string;
+                  target_tut?: number;
+                  rest_seconds?: number;
+                }) => ({
                   id: `temp-${Date.now()}-${ve.order_index}-${set.set_number}`,
                   set_number: set.set_number,
                   weight: set.target_weight || null, // Pre-fill target weight
                   reps: set.target_reps || null,
                   rir: set.target_rir !== undefined ? set.target_rir : null,
+                  rpe: set.target_rpe !== undefined ? set.target_rpe : null,
                   set_type: set.set_type || 'working',
                   notes: set.notes || null,
+                  // Campos de temporización desde la variante
+                  target_tut: set.target_tut || null,
+                  target_rest: set.rest_seconds || null,
                 }));
 
               return {
@@ -267,6 +320,8 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                 notes: ve.notes || '',
                 start_time: null,
                 end_time: null,
+                // Descanso después del ejercicio
+                rest_after_exercise: ve.rest_after_exercise || null,
               };
             });
 
@@ -360,7 +415,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   }, [exercises, globalActiveSetId]);
 
   // Función para actualizar un set específico
-  const handleUpdateActiveSet = (setId: string, field: keyof ExerciseSet, value: any) => {
+  const handleUpdateActiveSet = (setId: string, field: keyof ExerciseSet, value: string | number | null) => {
     const updatedExercises = exercises.map(ex => {
       const updatedSets = ex.sets.map(set => {
         if (set.id !== setId) return set;
@@ -974,6 +1029,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
               duration: set.duration,
               rest_time: set.rest_time,
               rir: set.rir,
+              rpe: set.rpe,
               notes: set.notes || null,
               set_type: set.set_type || 'working',
             })),
@@ -1012,7 +1068,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
         startTime: trainingStartTime,
         endTime: trainingEndTime,
         notes: watch('notes') || '',
-        tags: trainingTags,
+        tags: trainingTags || '',
       };
       
       // Marcar como guardado antes de redirigir
@@ -1204,6 +1260,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                         notes={trainingExercise.notes}
                         isLastExercise={index === exercises.length - 1}
                         defaultRestTime={defaultRestTime}
+                        restAfterExercise={trainingExercise.rest_after_exercise}
                         isGeneratingSummary={generatingExerciseSummaries.has(index)}
                         globalActiveSetId={globalActiveSetId}
                         globalRestingSetId={globalRestingSetId}

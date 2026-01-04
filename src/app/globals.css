@@ -80,19 +80,19 @@
   .container-mobile {
     @apply w-full px-4 mx-auto;
   }
-  
+
   @screen sm {
     .container-mobile {
       @apply px-6;
     }
   }
-  
+
   @screen md {
     .container-mobile {
       @apply px-8 max-w-4xl;
     }
   }
-  
+
   @screen lg {
     .container-mobile {
       @apply max-w-6xl;
@@ -150,36 +150,35 @@
   .animate-in {
     animation: fade-in 0.15s ease-out, slide-in-from-top 0.2s ease-out;
   }
-  
+
   .animate-out {
     animation: fade-out 0.15s ease-in, slide-out-to-right 0.2s ease-in;
   }
-  
+
   .data-\[state\=open\]\:animate-in[data-state="open"] {
     animation: fade-in 0.15s ease-out, slide-in-from-top 0.2s ease-out;
   }
-  
+
   .data-\[state\=closed\]\:animate-out[data-state="closed"] {
     animation: fade-out 0.15s ease-in, slide-out-to-right 0.2s ease-in;
   }
-  
+
   .data-\[state\=open\]\:slide-in-from-top-full[data-state="open"] {
     animation: slide-in-from-top 0.2s ease-out;
   }
-  
+
   .data-\[state\=open\]\:sm\:slide-in-from-bottom-full[data-state="open"] {
     @media (min-width: 640px) {
       animation: slide-in-from-bottom 0.2s ease-out;
     }
   }
-  
+
   .data-\[state\=closed\]\:slide-out-to-right-full[data-state="closed"] {
     animation: slide-out-to-right 0.2s ease-in;
   }
-  
+
   .data-\[state\=closed\]\:fade-out-80[data-state="closed"] {
     animation: fade-out 0.15s ease-in;
     opacity: 0.8;
   }
 }
-

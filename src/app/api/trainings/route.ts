@@ -314,6 +314,7 @@ export async function POST(request: NextRequest) {
               duration: set.duration !== undefined && set.duration !== null ? Number(set.duration) : null,
               rest_time: set.rest_time !== undefined && set.rest_time !== null ? Number(set.rest_time) : null,
               rir: set.rir !== undefined && set.rir !== null ? Number(set.rir) : null,
+              rpe: set.rpe !== undefined && set.rpe !== null ? Number(set.rpe) : null,
               notes: set.notes || null,
               set_type: set.set_type || 'working',
               theoretical_one_rm: set.theoretical_one_rm !== undefined && set.theoretical_one_rm !== null ? Number(set.theoretical_one_rm) : null,

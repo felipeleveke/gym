@@ -8,8 +8,9 @@ import { SportTrainingForm } from '@/components/trainings/sport-training-form';
 import { CardioTrainingForm } from '@/components/trainings/cardio-training-form';
 import { FlexibilityTrainingForm } from '@/components/trainings/flexibility-training-form';
 import { OtherTrainingForm } from '@/components/trainings/other-training-form';
+import { TrainingTypeValue } from '@/hooks/use-training-types';
 
-type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other' | null;
+type TrainingType = TrainingTypeValue | null;
 
 function NewTrainingContent() {
   const searchParams = useSearchParams();

@@ -72,7 +72,7 @@ interface VariantSet {
   target_rpe: number | null;
   target_weight_percent: number | null;
   target_weight: number | null;
-  target_tut: string | null;
+  target_tut: number | null;
   rest_seconds: number | null;
   set_type: 'warmup' | 'approach' | 'working' | 'backoff' | 'bilbo';
   notes?: string;
@@ -103,7 +103,7 @@ interface RoutineExerciseItem {
   default_weight?: number | null;
   default_rir?: number | null;
   default_rpe?: number | null;
-  default_tut?: string | null; // Tiempo bajo tensión (ej: "3-1-2-0")
+  default_tut?: number | null; // Tiempo bajo tensión en segundos
   rest_between_sets?: number | null; // Segundos de descanso entre series
   rest_after_exercise?: number | null; // Segundos de descanso después del ejercicio
   notes?: string;
@@ -432,6 +432,11 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
             default_sets: ex.default_sets,
             default_reps: ex.default_reps || null,
             default_weight: ex.default_weight || null,
+            default_rir: ex.default_rir ?? null,
+            default_rpe: ex.default_rpe ?? null,
+            default_tut: ex.default_tut || null,
+            rest_between_sets: ex.rest_between_sets || null,
+            rest_after_exercise: ex.rest_after_exercise || null,
             notes: ex.notes || null,
           })),
         }),
@@ -468,12 +473,16 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
               exercise_id: ex.exercise.id,
               order_index: index,
               notes: ex.notes,
+              rest_after_exercise: ex.rest_after_exercise || null,
               sets: ex.sets.map((set, setIndex) => ({
                 set_number: setIndex + 1,
                 target_reps: set.target_reps,
                 target_rir: set.target_rir,
+                target_rpe: set.target_rpe,
                 target_weight_percent: set.target_weight_percent,
                 target_weight: set.target_weight,
+                target_tut: set.target_tut,
+                rest_seconds: set.rest_seconds,
                 set_type: set.set_type,
                 notes: set.notes,
               })),
@@ -568,7 +577,7 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
                 onValueChange={(value) => setValue('type', value)}
                 defaultValue={selectedType}
                 value={selectedType}
-                disabled={isLoadingTypes}
+                disabled={isLoadingTypes && trainingTypes.length === 0}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Selecciona un tipo" />
@@ -792,7 +801,7 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
                                 updateExerciseField(
                                   item.id,
                                   'default_rpe',
-                                  v ? parseFloat(v) : null
+                                  v ? parseInt(v) : null
                                 )
                               }
                             >
@@ -800,7 +809,7 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
                                 <SelectValue placeholder="Seleccionar" />
                               </SelectTrigger>
                               <SelectContent>
-                                {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((rpe) => (
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rpe) => (
                                   <SelectItem key={rpe} value={rpe.toString()}>
                                     {rpe}
                                   </SelectItem>
@@ -809,13 +818,15 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
                             </Select>
                           </div>
                           <div>
-                            <Label className="text-xs">TUT (Tempo)</Label>
+                            <Label className="text-xs">TUT (segundos)</Label>
                             <Input
+                              type="number"
+                              min="1"
                               value={item.default_tut || ''}
                               onChange={(e) =>
-                                updateExerciseField(item.id, 'default_tut', e.target.value || null)
+                                updateExerciseField(item.id, 'default_tut', e.target.value ? parseInt(e.target.value) : null)
                               }
-                              placeholder="Ej: 3-1-2-0"
+                              placeholder="Ej: 4"
                             />
                           </div>
                           <div>

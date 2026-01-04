@@ -40,7 +40,7 @@ interface VariantSet {
   target_rpe: number | null; // Rate of Perceived Exertion (6-10)
   target_weight_percent: number | null;
   target_weight: number | null;
-  target_tut: string | null; // Time Under Tension (ej: "3-1-2-0")
+  target_tut: number | null; // Time Under Tension en segundos
   rest_seconds: number | null; // Descanso después de esta serie
   theoretical_one_rm?: number | null; // Calculated 1RM (not stored in DB, computed on the fly)
   set_type: 'warmup' | 'approach' | 'working' | 'backoff' | 'bilbo';
@@ -410,7 +410,7 @@ export function VariantEditor({
                             <th className="text-center py-2 px-1">% 1RM</th>
                             <th className="text-center py-2 px-1">1RM</th>
                             <th className="text-center py-2 px-1">RPE</th>
-                            <th className="text-center py-2 px-1">TUT</th>
+                            <th className="text-center py-2 px-1">TUT (s)</th>
                             <th className="text-center py-2 px-1">Descanso</th>
                             {!isReadOnly && <th className="w-10"></th>}
                           </tr>
@@ -562,7 +562,7 @@ export function VariantEditor({
                                       value={set.target_rpe?.toString() || ''}
                                       onValueChange={(v) =>
                                         handleUpdateSet(exIndex, setIndex, {
-                                          target_rpe: v ? parseFloat(v) : null,
+                                          target_rpe: v ? parseInt(v) : null,
                                         })
                                       }
                                     >
@@ -570,7 +570,7 @@ export function VariantEditor({
                                         <SelectValue placeholder="-" />
                                       </SelectTrigger>
                                       <SelectContent>
-                                        {[6, 6.5, 7, 7.5, 8, 8.5, 9, 9.5, 10].map((rpe) => (
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((rpe) => (
                                           <SelectItem key={rpe} value={rpe.toString()}>
                                             {rpe}
                                           </SelectItem>
@@ -579,20 +579,22 @@ export function VariantEditor({
                                     </Select>
                                   )}
                                 </td>
-                                {/* TUT */}
+                                {/* TUT (segundos) */}
                                 <td className="py-2 px-1 text-center">
                                   {isReadOnly ? (
-                                    set.target_tut || '-'
+                                    set.target_tut ? `${set.target_tut}s` : '-'
                                   ) : (
                                     <Input
+                                      type="number"
+                                      min="1"
                                       value={set.target_tut || ''}
                                       onChange={(e) =>
                                         handleUpdateSet(exIndex, setIndex, {
-                                          target_tut: e.target.value || null,
+                                          target_tut: e.target.value ? parseInt(e.target.value) : null,
                                         })
                                       }
-                                      className="h-8 w-24 text-center"
-                                      placeholder="3-1-2-0"
+                                      className="h-8 w-20 text-center"
+                                      placeholder="4"
                                     />
                                   )}
                                 </td>

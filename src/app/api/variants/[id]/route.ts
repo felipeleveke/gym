@@ -128,6 +128,7 @@ export async function PUT(
             exercise_id: ex.exercise_id,
             order_index: ex.order_index,
             notes: ex.notes || null,
+            rest_after_exercise: ex.rest_after_exercise || null,
           })
           .select()
           .single();
@@ -143,8 +144,11 @@ export async function PUT(
             set_number: index + 1,
             target_reps: set.target_reps || null,
             target_rir: set.target_rir !== undefined ? set.target_rir : null,
+            target_rpe: set.target_rpe !== undefined ? set.target_rpe : null,
             target_weight_percent: set.target_weight_percent || null,
             target_weight: set.target_weight || null,
+            target_tut: set.target_tut || null,
+            rest_seconds: set.rest_seconds || null,
             set_type: set.set_type || 'working',
             notes: set.notes || null,
           }));

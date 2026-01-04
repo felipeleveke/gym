@@ -117,6 +117,11 @@ export async function POST(request: NextRequest) {
         default_weight: ex.default_weight || null,
         default_sets: ex.default_sets || null,
         default_reps: ex.default_reps || null,
+        default_rir: ex.default_rir ?? null,
+        default_rpe: ex.default_rpe ?? null,
+        default_tut: ex.default_tut || null,
+        rest_between_sets: ex.rest_between_sets || null,
+        rest_after_exercise: ex.rest_after_exercise || null,
         notes: ex.notes || null,
       }));
 
