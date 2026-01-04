@@ -269,6 +269,26 @@ export function ExerciseForm({
     });
   };
 
+  // Calcular volumen de una serie
+  const calculateSetVolume = (set: ExerciseSet): number => {
+    if (set.weight && set.reps) {
+      return set.weight * set.reps;
+    }
+    return 0;
+  };
+
+  // Calcular volumen total del ejercicio
+  const calculateExerciseVolume = (): number => {
+    return sets.reduce((total, set) => total + calculateSetVolume(set), 0);
+  };
+
+  const formatVolume = (volume: number): string => {
+    if (volume >= 1000) {
+      return `${(volume / 1000).toFixed(1)}t`;
+    }
+    return `${Math.round(volume)}kg`;
+  };
+
   return (
     <Card>
       <CardHeader className="pb-2 sm:pb-3">
@@ -328,6 +348,11 @@ export function ExerciseForm({
               {exercise.muscle_groups && exercise.muscle_groups.length > 0 && (
                 <p className="text-[10px] sm:text-xs text-muted-foreground mt-0.5 sm:mt-1 line-clamp-1">
                   {exercise.muscle_groups.join(', ')}
+                </p>
+              )}
+              {calculateExerciseVolume() > 0 && (
+                <p className="text-[10px] sm:text-xs font-semibold text-primary mt-0.5 sm:mt-1">
+                  Volumen: {formatVolume(calculateExerciseVolume())}
                 </p>
               )}
             </div>
@@ -417,6 +442,11 @@ export function ExerciseForm({
                           <span className="text-xs sm:text-sm text-muted-foreground">
                             {set.weight ? `${set.weight}kg` : '-'} × {set.reps || '-'} @ RIR {set.rir ?? '-'}
                             {set.duration && ` (${Math.floor(set.duration / 60)}:${String(set.duration % 60).padStart(2, '0')})`}
+                            {calculateSetVolume(set) > 0 && (
+                              <span className="ml-1 font-semibold text-primary">
+                                • {formatVolume(calculateSetVolume(set))}
+                              </span>
+                            )}
                           </span>
                         </div>
                         <div className="flex items-center gap-1">
@@ -562,9 +592,16 @@ export function ExerciseForm({
                     
                     {/* Reps */}
                     <div className="col-span-1 sm:col-span-1 md:col-span-2">
-                      <Label htmlFor={`reps-${set.id}`} className="text-xs mb-1 block">
-                        Reps
-                      </Label>
+                      <div className="flex items-center justify-between mb-1">
+                        <Label htmlFor={`reps-${set.id}`} className="text-xs">
+                          Reps
+                        </Label>
+                        {calculateSetVolume(set) > 0 && (
+                          <Badge variant="secondary" className="text-[9px] h-4 px-1.5 font-semibold bg-primary/10 text-primary border-primary/20">
+                            {formatVolume(calculateSetVolume(set))}
+                          </Badge>
+                        )}
+                      </div>
                       <Input
                         id={`reps-${set.id}`}
                         type="number"

@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { StatTooltip } from './stat-tooltip';
 
 interface VolumeDataPoint {
     date: string;
@@ -106,7 +107,10 @@ export function VolumeChart({ dateRange, className }: VolumeChartProps) {
     return (
         <Card className={className}>
             <CardHeader>
-                <CardTitle>Evolución del Volumen</CardTitle>
+                <div className="flex items-center gap-2">
+                    <CardTitle>Evolución del Volumen</CardTitle>
+                    <StatTooltip description="Muestra el volumen total de entrenamiento por día en el período seleccionado. El volumen se calcula como la suma de peso × repeticiones de todas las series realizadas cada día. Los datos provienen de exercise_sets agrupados por fecha de gym_trainings. Útil para ver la progresión de la carga de trabajo diaria." />
+                </div>
                 <CardDescription>Volumen de entrenamiento por día (kg × reps)</CardDescription>
             </CardHeader>
             <CardContent>

@@ -13,6 +13,7 @@ import {
     Tooltip,
     Legend,
 } from 'recharts';
+import { StatTooltip } from './stat-tooltip';
 
 interface RoutineComparison {
     routineId: string;
@@ -171,29 +172,43 @@ export function RoutineComparisonChart({
     return (
         <Card className={className}>
             <CardHeader>
-                <CardTitle>Comparación de Rutinas</CardTitle>
+                <div className="flex items-center gap-2">
+                    <CardTitle>Comparación de Rutinas</CardTitle>
+                    <StatTooltip description="Compara el rendimiento entre diferentes rutinas de entrenamiento. Los datos provienen de gym_trainings que tienen asociada una routine_id. Puedes comparar volumen total, número de entrenamientos o duración total. Útil para evaluar qué rutinas te dan mejores resultados." />
+                </div>
                 <CardDescription>Compara el rendimiento entre rutinas seleccionadas</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="mb-4 flex flex-wrap gap-2">
-                    {(['volume', 'trainings', 'duration'] as ComparisonMetric[]).map((metric) => (
-                        <button
-                            key={metric}
-                            onClick={() => setSelectedMetric(metric)}
-                            className={`
-                                px-3 py-1 text-xs rounded-md transition-colors
-                                ${
-                                    selectedMetric === metric
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                }
-                            `}
-                        >
-                            {metric === 'volume' && 'Volumen'}
-                            {metric === 'trainings' && 'Entrenamientos'}
-                            {metric === 'duration' && 'Duración'}
-                        </button>
-                    ))}
+                <div className="mb-4 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                        {(['volume', 'trainings', 'duration'] as ComparisonMetric[]).map((metric) => (
+                            <button
+                                key={metric}
+                                onClick={() => setSelectedMetric(metric)}
+                                className={`
+                                    px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1
+                                    ${
+                                        selectedMetric === metric
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                    }
+                                `}
+                            >
+                                {metric === 'volume' && 'Volumen'}
+                                {metric === 'trainings' && 'Entrenamientos'}
+                                {metric === 'duration' && 'Duración'}
+                                {metric === 'volume' && (
+                                    <StatTooltip description="Volumen Total: Suma de peso × repeticiones de todas las series realizadas con esta rutina. Se calcula desde exercise_sets de los entrenamientos asociados a la rutina." className="ml-1" />
+                                )}
+                                {metric === 'trainings' && (
+                                    <StatTooltip description="Número de Entrenamientos: Cantidad de sesiones de entrenamiento realizadas con esta rutina en el período seleccionado. Se cuenta desde gym_trainings donde routine_id coincide." className="ml-1" />
+                                )}
+                                {metric === 'duration' && (
+                                    <StatTooltip description="Duración Total: Suma de minutos de entrenamiento con esta rutina. Se obtiene sumando el campo 'duration' de todos los gym_trainings asociados a la rutina." className="ml-1" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                     <BarChart data={chartData}>

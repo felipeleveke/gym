@@ -570,6 +570,56 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
     ? Math.round((totalExerciseTime / (totalExerciseTime + totalRestTime)) * 100)
     : totalExerciseTime > 0 ? 100 : 0;
 
+  // Calcular volumen total del entrenamiento
+  const totalVolume = exercises.reduce((total, ex) => {
+    return total + ex.sets.reduce((setTotal, set) => {
+      const weight = set.weight || 0;
+      const reps = set.reps || 0;
+      return setTotal + (weight * reps);
+    }, 0);
+  }, 0);
+
+  // Calcular densidad relativa (% tiempo trabajando sobre duración total)
+  const totalDurationSeconds = calculatedDuration ? calculatedDuration * 60 : (totalExerciseTime + totalRestTime);
+  const relativeDensity = totalDurationSeconds > 0
+    ? Math.round((totalExerciseTime / totalDurationSeconds) * 100)
+    : 0;
+
+  // Calcular densidad absoluta (kg/min)
+  const absoluteDensity = calculatedDuration && calculatedDuration > 0
+    ? totalVolume / calculatedDuration
+    : 0;
+
+  // Calcular métricas por ejercicio
+  const exerciseMetrics = exercises.map(ex => {
+    const exerciseVolume = ex.sets.reduce((total, set) => {
+      const weight = set.weight || 0;
+      const reps = set.reps || 0;
+      return total + (weight * reps);
+    }, 0);
+    
+    const exerciseWorkingTime = ex.sets.reduce((total, set) => total + (set.duration || 0), 0);
+    const exerciseRestTime = ex.sets.reduce((total, set) => total + (set.rest_time || 0), 0);
+    const exerciseTotalTime = exerciseWorkingTime + exerciseRestTime;
+    
+    const exerciseRelativeDensity = exerciseTotalTime > 0
+      ? Math.round((exerciseWorkingTime / exerciseTotalTime) * 100)
+      : 0;
+    
+    const exerciseDurationMinutes = exerciseTotalTime / 60;
+    const exerciseAbsoluteDensity = exerciseDurationMinutes > 0
+      ? exerciseVolume / exerciseDurationMinutes
+      : 0;
+
+    return {
+      exerciseId: ex.exercise.id,
+      exerciseName: ex.exercise.name,
+      volume: exerciseVolume,
+      relativeDensity: exerciseRelativeDensity,
+      absoluteDensity: exerciseAbsoluteDensity,
+    };
+  });
+
   const formatTime = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
@@ -579,6 +629,13 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
       return `${hrs}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     }
     return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const formatVolume = (kg: number) => {
+    if (kg >= 1000) {
+      return `${(kg / 1000).toFixed(1)}t`;
+    }
+    return `${Math.round(kg)}kg`;
   };
 
   const handleFirstExerciseStart = () => {
@@ -1344,6 +1401,34 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                         {exercisePercentage}%
                       </span>
                     </div>
+                  </div>
+                </div>
+              )}
+              {totalVolume > 0 && (
+                <div className="pt-2 border-t space-y-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                    <div>
+                      <Label className="text-xs text-muted-foreground">Volumen Total</Label>
+                      <div className="text-sm sm:text-base font-semibold text-primary">
+                        {formatVolume(totalVolume)}
+                      </div>
+                    </div>
+                    {calculatedDuration && calculatedDuration > 0 && (
+                      <>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Densidad Relativa</Label>
+                          <div className="text-sm sm:text-base font-semibold text-primary">
+                            {relativeDensity}%
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs text-muted-foreground">Densidad Absoluta</Label>
+                          <div className="text-sm sm:text-base font-semibold text-primary">
+                            {Math.round(absoluteDensity)} kg/min
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}

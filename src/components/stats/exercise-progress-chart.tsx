@@ -17,6 +17,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Trophy } from 'lucide-react';
+import { StatTooltip } from './stat-tooltip';
 
 interface EvolutionDataPoint {
     date: string;
@@ -175,8 +176,11 @@ export function ExerciseProgressChart({
         <Card className={className}>
             <CardHeader>
                 <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle>Evolución del Ejercicio</CardTitle>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                            <CardTitle>Evolución del Ejercicio</CardTitle>
+                            <StatTooltip description="Muestra la evolución de diferentes métricas del ejercicio seleccionado a lo largo del tiempo. Los datos provienen de exercise_sets agrupados por sesión de entrenamiento (gym_trainings). Cada punto representa una sesión donde realizaste este ejercicio." />
+                        </div>
                         <CardDescription>{exerciseName}</CardDescription>
                     </div>
                     {maxWeight > 0 && (
@@ -188,26 +192,40 @@ export function ExerciseProgressChart({
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="mb-4 flex flex-wrap gap-2">
-                    {(['weight', 'reps', 'volume', 'rir'] as MetricType[]).map((metric) => (
-                        <button
-                            key={metric}
-                            onClick={() => setSelectedMetric(metric)}
-                            className={`
-                                px-3 py-1 text-xs rounded-md transition-colors
-                                ${
-                                    selectedMetric === metric
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                                }
-                            `}
-                        >
-                            {metric === 'weight' && 'Peso'}
-                            {metric === 'reps' && 'Reps'}
-                            {metric === 'volume' && 'Volumen'}
-                            {metric === 'rir' && 'RIR'}
-                        </button>
-                    ))}
+                <div className="mb-4 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                        {(['weight', 'reps', 'volume', 'rir'] as MetricType[]).map((metric) => (
+                            <button
+                                key={metric}
+                                onClick={() => setSelectedMetric(metric)}
+                                className={`
+                                    px-3 py-1 text-xs rounded-md transition-colors flex items-center gap-1
+                                    ${
+                                        selectedMetric === metric
+                                            ? 'bg-primary text-primary-foreground'
+                                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                                    }
+                                `}
+                            >
+                                {metric === 'weight' && 'Peso'}
+                                {metric === 'reps' && 'Reps'}
+                                {metric === 'volume' && 'Volumen'}
+                                {metric === 'rir' && 'RIR'}
+                                {metric === 'weight' && (
+                                    <StatTooltip description="Peso Máximo: El mayor peso utilizado en una serie de esta sesión. Se obtiene del campo 'weight' de exercise_sets, tomando el máximo por cada entrenamiento." className="ml-1" />
+                                )}
+                                {metric === 'reps' && (
+                                    <StatTooltip description="Repeticiones Promedio: Promedio de repeticiones por serie en esta sesión. Se calcula como: suma de reps / número de series. Datos del campo 'reps' de exercise_sets." className="ml-1" />
+                                )}
+                                {metric === 'volume' && (
+                                    <StatTooltip description="Volumen: Suma de peso × repeticiones de todas las series de esta sesión. Fórmula: Σ(weight × reps) por cada serie del ejercicio en el entrenamiento." className="ml-1" />
+                                )}
+                                {metric === 'rir' && (
+                                    <StatTooltip description="RIR Promedio: Reps In Reserve promedio. Indica cuántas repeticiones te quedaban en reserva. Se calcula como promedio del campo 'rir' de exercise_sets donde está registrado." className="ml-1" />
+                                )}
+                            </button>
+                        ))}
+                    </div>
                 </div>
                 <ResponsiveContainer width="100%" height={300}>
                     <LineChart data={chartData}>

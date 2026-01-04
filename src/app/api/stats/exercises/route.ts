@@ -64,13 +64,22 @@ export async function GET(request: NextRequest) {
                 .eq('exercise_id', exerciseId)
                 .eq('training.user_id', user.id)
                 .gte('training.date', filterStartDate)
-                .lte('training.date', filterEndDate)
-                .order('training.date', { ascending: true });
+                .lte('training.date', filterEndDate);
 
             if (teError) {
                 console.error('Error fetching training exercises:', teError);
-                throw teError;
+                return NextResponse.json(
+                    { error: 'Error al obtener datos del ejercicio' },
+                    { status: 500 }
+                );
             }
+
+            // Ordenar por fecha del entrenamiento en JavaScript
+            const sortedTrainingExercises = trainingExercises?.sort((a: any, b: any) => {
+                const dateA = new Date(a.training?.date || 0).getTime();
+                const dateB = new Date(b.training?.date || 0).getTime();
+                return dateA - dateB;
+            }) || [];
 
             // Procesar datos para gráficos de evolución
             const evolutionData: Array<{
@@ -96,7 +105,7 @@ export async function GET(request: NextRequest) {
             let allTimeMaxVolume = 0;
             let totalTrainingSessions = 0;
 
-            trainingExercises?.forEach((te: any) => {
+            sortedTrainingExercises.forEach((te: any) => {
                 const training = te.training;
                 if (!training) return;
 

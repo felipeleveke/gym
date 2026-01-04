@@ -19,6 +19,7 @@ import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { StatTooltip } from './stat-tooltip';
 
 interface ProgressDataPoint {
     period: string;
@@ -184,7 +185,10 @@ export function ProgressChart({ dateRange, className }: ProgressChartProps) {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Frecuencia Diaria</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <CardTitle className="text-sm font-medium">Frecuencia Diaria</CardTitle>
+                                <StatTooltip description="Promedio de entrenamientos por día en el período seleccionado. Se calcula como: total de entrenamientos / número de días del período. Incluye entrenamientos de gimnasio y deportivos." />
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
@@ -195,7 +199,10 @@ export function ProgressChart({ dateRange, className }: ProgressChartProps) {
                     </Card>
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Frecuencia Semanal</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <CardTitle className="text-sm font-medium">Frecuencia Semanal</CardTitle>
+                                <StatTooltip description="Promedio de entrenamientos por semana. Se calcula como: total de entrenamientos / número de semanas del período. Útil para evaluar la consistencia del entrenamiento." />
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
@@ -206,7 +213,10 @@ export function ProgressChart({ dateRange, className }: ProgressChartProps) {
                     </Card>
                     <Card>
                         <CardHeader className="pb-2">
-                            <CardTitle className="text-sm font-medium">Frecuencia Mensual</CardTitle>
+                            <div className="flex items-center gap-2">
+                                <CardTitle className="text-sm font-medium">Frecuencia Mensual</CardTitle>
+                                <StatTooltip description="Promedio de entrenamientos por mes. Se calcula como: total de entrenamientos / número de meses del período. Ayuda a planificar objetivos mensuales." />
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="text-2xl font-bold">
@@ -227,12 +237,23 @@ export function ProgressChart({ dateRange, className }: ProgressChartProps) {
                         return (
                             <Card key={metric}>
                                 <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                                        {getTrendIcon(change)}
-                                        {metric === 'trainings' && 'Entrenamientos'}
-                                        {metric === 'volume' && 'Volumen'}
-                                        {metric === 'duration' && 'Duración'}
-                                    </CardTitle>
+                                    <div className="flex items-center gap-2">
+                                        <CardTitle className="text-sm font-medium flex items-center gap-2">
+                                            {getTrendIcon(change)}
+                                            {metric === 'trainings' && 'Entrenamientos'}
+                                            {metric === 'volume' && 'Volumen'}
+                                            {metric === 'duration' && 'Duración'}
+                                        </CardTitle>
+                                        {metric === 'trainings' && (
+                                            <StatTooltip description="Cambio porcentual en la frecuencia de entrenamientos comparando la primera mitad del período con la segunda mitad. Un valor positivo indica que entrenaste más en la segunda mitad." />
+                                        )}
+                                        {metric === 'volume' && (
+                                            <StatTooltip description="Cambio porcentual en el volumen total (peso × reps) comparando la primera mitad del período con la segunda mitad. Indica si estás progresando en intensidad." />
+                                        )}
+                                        {metric === 'duration' && (
+                                            <StatTooltip description="Cambio porcentual en la duración total de entrenamientos comparando la primera mitad con la segunda mitad. Muestra si pasas más o menos tiempo entrenando." />
+                                        )}
+                                    </div>
                                 </CardHeader>
                                 <CardContent>
                                     <div className="text-2xl font-bold">
@@ -252,8 +273,11 @@ export function ProgressChart({ dateRange, className }: ProgressChartProps) {
             <Card>
                 <CardHeader>
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                        <div>
-                            <CardTitle>Análisis de Progreso</CardTitle>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                                <CardTitle>Análisis de Progreso</CardTitle>
+                                <StatTooltip description="Gráfico que muestra la evolución de tus entrenamientos agrupados por día, semana o mes según selecciones. Los datos provienen de gym_trainings y sport_trainings, agrupados y sumados por período. Puedes ver frecuencia (número de entrenamientos), volumen total o duración total." />
+                            </div>
                             <CardDescription>Evolución temporal de tus entrenamientos</CardDescription>
                         </div>
                         <div className="flex gap-2">

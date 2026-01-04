@@ -44,7 +44,9 @@ export async function GET(request: NextRequest) {
             id,
             weight,
             reps,
-            rir
+            rir,
+            rpe,
+            duration
           )
         )
       `)
@@ -101,13 +103,24 @@ export async function GET(request: NextRequest) {
             (gymTrainings?.filter(t => new Date(t.date) >= new Date(monthStart)).reduce((sum, t) => sum + (t.duration || 0), 0) || 0) +
             (sportTrainings?.filter(t => new Date(t.date) >= new Date(monthStart)).reduce((sum, t) => sum + (t.duration || 0), 0) || 0);
 
-        // Calcular volumen total (suma de peso * repeticiones)
+        // Calcular volumen total (suma de peso * repeticiones) y tiempo de trabajo efectivo
         let totalVolume = 0;
-        const exerciseCount: Record<string, { name: string; count: number; totalVolume: number }> = {};
+        let totalWorkingTime = 0; // en segundos
+        let totalRpe = 0;
+        let rpeCount = 0;
+        const exerciseCount: Record<string, { 
+            name: string; 
+            count: number; 
+            totalVolume: number;
+            totalWorkingTime: number;
+            totalDuration: number;
+        }> = {};
         const muscleGroupCount: Record<string, number> = {};
         const personalRecords: Record<string, { exerciseName: string; weight: number; reps: number; date: string }> = {};
 
         gymTrainings?.forEach(training => {
+            const trainingDuration = training.duration || 0; // en minutos
+            
             training.training_exercises?.forEach((te: any) => {
                 const exerciseId = te.exercise_id;
                 const exerciseName = te.exercise?.name || 'Desconocido';
@@ -115,7 +128,13 @@ export async function GET(request: NextRequest) {
 
                 // Contar ejercicios
                 if (!exerciseCount[exerciseId]) {
-                    exerciseCount[exerciseId] = { name: exerciseName, count: 0, totalVolume: 0 };
+                    exerciseCount[exerciseId] = { 
+                        name: exerciseName, 
+                        count: 0, 
+                        totalVolume: 0,
+                        totalWorkingTime: 0,
+                        totalDuration: 0
+                    };
                 }
                 exerciseCount[exerciseId].count++;
 
@@ -129,13 +148,25 @@ export async function GET(request: NextRequest) {
                 });
 
                 // Procesar series
+                let exerciseWorkingTime = 0;
                 te.exercise_sets?.forEach((set: any) => {
                     const weight = set.weight || 0;
                     const reps = set.reps || 0;
                     const volume = weight * reps;
+                    const setDuration = set.duration || 0; // en segundos
+                    const rpe = set.rpe;
 
                     totalVolume += volume;
                     exerciseCount[exerciseId].totalVolume += volume;
+                    
+                    totalWorkingTime += setDuration;
+                    exerciseWorkingTime += setDuration;
+
+                    // Acumular RPE si tiene valor válido
+                    if (rpe !== null && rpe !== undefined && rpe > 0) {
+                        totalRpe += rpe;
+                        rpeCount++;
+                    }
 
                     // Actualizar récord personal si es necesario
                     if (weight > 0) {
@@ -149,19 +180,50 @@ export async function GET(request: NextRequest) {
                         }
                     }
                 });
+                
+                // Acumular duración total del ejercicio (duración del entrenamiento / número de ejercicios)
+                exerciseCount[exerciseId].totalWorkingTime += exerciseWorkingTime;
+                exerciseCount[exerciseId].totalDuration += trainingDuration;
             });
         });
+
+        // Calcular densidades totales
+        const totalDurationSeconds = totalGymDuration * 60; // convertir minutos a segundos
+        const relativeDensity = totalDurationSeconds > 0
+            ? Math.round((totalWorkingTime / totalDurationSeconds) * 100)
+            : 0;
+        const absoluteDensity = totalGymDuration > 0
+            ? totalVolume / totalGymDuration
+            : 0;
+        
+        // Calcular RPE promedio
+        const avgRpe = rpeCount > 0
+            ? Math.round((totalRpe / rpeCount) * 10) / 10 // Redondear a 1 decimal
+            : null;
 
         // Top 5 ejercicios más usados
         const topExercises = Object.entries(exerciseCount)
             .sort((a, b) => b[1].count - a[1].count)
             .slice(0, 5)
-            .map(([id, data]) => ({
-                exerciseId: id,
-                name: data.name,
-                count: data.count,
-                totalVolume: Math.round(data.totalVolume),
-            }));
+            .map(([id, data]) => {
+                // Calcular densidades por ejercicio
+                const exerciseDurationSeconds = data.totalDuration * 60;
+                const exerciseRelativeDensity = exerciseDurationSeconds > 0
+                    ? Math.round((data.totalWorkingTime / exerciseDurationSeconds) * 100)
+                    : 0;
+                const exerciseAbsoluteDensity = data.totalDuration > 0
+                    ? data.totalVolume / data.totalDuration
+                    : 0;
+
+                return {
+                    exerciseId: id,
+                    name: data.name,
+                    count: data.count,
+                    totalVolume: Math.round(data.totalVolume),
+                    relativeDensity: exerciseRelativeDensity,
+                    absoluteDensity: Math.round(exerciseAbsoluteDensity),
+                };
+            });
 
         // Distribución de grupos musculares
         const muscleGroupDistribution = Object.entries(muscleGroupCount)
@@ -221,6 +283,10 @@ export async function GET(request: NextRequest) {
                     totalDuration,
                     avgDuration,
                     totalVolume: Math.round(totalVolume),
+                    totalWorkingTime: Math.round(totalWorkingTime),
+                    relativeDensity,
+                    absoluteDensity: Math.round(absoluteDensity),
+                    avgRpe,
                 },
                 thisWeek: {
                     trainings: thisWeekGym + thisWeekSport,
