@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -12,8 +12,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
+import { useTrainingDraft, TrainingDraft } from '@/hooks/use-training-draft';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
-import { ArrowLeft, Loader2, Plus, Clock } from 'lucide-react';
+import { ContinueTrainingDialog } from './continue-training-dialog';
+import { ArrowLeft, Loader2, Plus, Clock, Save } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ExerciseSelector } from './exercise-selector';
 import { ExerciseForm } from './exercise-form';
@@ -86,6 +88,12 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   const [isSaved, setIsSaved] = useState(false);
   const [showExerciseSelector, setShowExerciseSelector] = useState(false);
   const [loadingRoutine, setLoadingRoutine] = useState(!!routineId || !!variantId);
+  
+  // Hook para auto-guardado del borrador
+  const { draft, hasDraft, isLoading: isLoadingDraft, autoSave, clearDraft } = useTrainingDraft('gym');
+  const [showContinueDialog, setShowContinueDialog] = useState(false);
+  const [draftProcessed, setDraftProcessed] = useState(false);
+  const [lastAutoSave, setLastAutoSave] = useState<Date | null>(null);
   const [routineHistory, setRoutineHistory] = useState<Record<string, {
     lastWeight?: number | null;
     lastReps?: number | null;
@@ -130,6 +138,61 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
     }
     return [];
   });
+
+  // Efecto para mostrar diálogo de continuar entrenamiento si hay borrador
+  useEffect(() => {
+    // Solo mostrar diálogo si:
+    // - No estamos en modo edición (trainingId)
+    // - No hay datos iniciales
+    // - No hay rutina precargada
+    // - Hay un borrador guardado
+    // - El borrador no ha sido procesado aún
+    if (
+      !isLoadingDraft &&
+      !draftProcessed &&
+      !trainingId &&
+      !initialData &&
+      !routineId &&
+      !variantId &&
+      hasDraft &&
+      draft
+    ) {
+      setShowContinueDialog(true);
+    } else if (!isLoadingDraft && !draftProcessed) {
+      setDraftProcessed(true);
+    }
+  }, [isLoadingDraft, draftProcessed, trainingId, initialData, routineId, variantId, hasDraft, draft]);
+
+  // Función para restaurar el borrador
+  const handleContinueDraft = useCallback(() => {
+    if (!draft) return;
+    
+    // Restaurar ejercicios
+    setExercises(draft.exercises);
+    
+    // Restaurar tiempos
+    setTrainingStartTime(draft.startTime);
+    setTrainingEndTime(draft.endTime);
+    
+    // Restaurar tiempo de descanso predeterminado
+    setDefaultRestTime(draft.defaultRestTime);
+    
+    // Cerrar diálogo y marcar como procesado
+    setShowContinueDialog(false);
+    setDraftProcessed(true);
+    
+    toast({
+      title: 'Entrenamiento restaurado',
+      description: 'Se ha cargado tu entrenamiento guardado. Puedes continuar donde lo dejaste.',
+    });
+  }, [draft, toast]);
+
+  // Función para empezar nuevo entrenamiento
+  const handleStartNew = useCallback(() => {
+    clearDraft();
+    setShowContinueDialog(false);
+    setDraftProcessed(true);
+  }, [clearDraft]);
 
   // Cargar rutina si hay routineId (solo si NO hay variantId, porque loadVariant lo manejará)
   useEffect(() => {
@@ -552,6 +615,69 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
 
   const trainingNotes = watch('notes');
   const trainingTags = watch('tags');
+
+  // Efecto para restaurar notas y tags del borrador después de que el form esté listo
+  useEffect(() => {
+    if (draft && showContinueDialog === false && draftProcessed && !trainingId && !initialData) {
+      // Si el borrador tiene notas/tags y aún no los hemos restaurado
+      if (draft.notes && !trainingNotes) {
+        setValue('notes', draft.notes);
+      }
+      if (draft.tags && !trainingTags) {
+        setValue('tags', draft.tags);
+      }
+    }
+  }, [draft, showContinueDialog, draftProcessed, trainingId, initialData, trainingNotes, trainingTags, setValue]);
+
+  // Efecto para auto-guardar el borrador cuando hay cambios
+  useEffect(() => {
+    // No guardar si:
+    // - Estamos en modo edición
+    // - El formulario ya se guardó
+    // - Estamos cargando
+    // - El diálogo de continuar está abierto
+    // - No se ha procesado el borrador inicial
+    if (trainingId || isSaved || isLoadingDraft || showContinueDialog || !draftProcessed) {
+      return;
+    }
+
+    // Solo guardar si hay al menos un ejercicio o se ha iniciado el entrenamiento
+    if (exercises.length === 0 && !trainingStartTime) {
+      return;
+    }
+
+    const draftData = {
+      exercises,
+      startTime: trainingStartTime,
+      endTime: trainingEndTime,
+      notes: trainingNotes || '',
+      tags: trainingTags || '',
+      defaultRestTime,
+      routineId: routineId || null,
+      variantId: variantId || null,
+      phaseRoutineId: phaseRoutineId || null,
+      trainingId: null,
+    };
+
+    autoSave(draftData);
+    setLastAutoSave(new Date());
+  }, [
+    exercises,
+    trainingStartTime,
+    trainingEndTime,
+    trainingNotes,
+    trainingTags,
+    defaultRestTime,
+    trainingId,
+    isSaved,
+    isLoadingDraft,
+    showContinueDialog,
+    draftProcessed,
+    routineId,
+    variantId,
+    phaseRoutineId,
+    autoSave,
+  ]);
 
   // Guardar estado inicial para comparar cambios
   const initialStateRef = useRef({
@@ -1074,6 +1200,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
       // Marcar como guardado antes de redirigir
       setIsSaved(true);
       
+      // Limpiar el borrador guardado ya que se guardó exitosamente
+      clearDraft();
+      
       toast({
         title: isEditMode ? 'Entrenamiento actualizado' : 'Entrenamiento creado',
         description: `Tu entrenamiento con ${finalExercises.filter((ex) => ex.sets.length > 0).length} ejercicio(s) ha sido ${isEditMode ? 'actualizado' : 'registrado'} exitosamente.`,
@@ -1108,16 +1237,26 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
 
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleBack}
-              disabled={isSubmitting}
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-            <CardTitle>{trainingId ? 'Editar Entrenamiento de Gimnasio' : 'Nuevo Entrenamiento de Gimnasio'}</CardTitle>
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleBack}
+                disabled={isSubmitting}
+              >
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <CardTitle>{trainingId ? 'Editar Entrenamiento de Gimnasio' : 'Nuevo Entrenamiento de Gimnasio'}</CardTitle>
+            </div>
+            {/* Indicador de auto-guardado */}
+            {!trainingId && lastAutoSave && (
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Save className="h-3 w-3" />
+                <span className="hidden sm:inline">Guardado automáticamente</span>
+                <span className="sm:hidden">Auto</span>
+              </div>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -1372,6 +1511,14 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
         exerciseSeconds={activeSetExerciseTime}
         onUpdateSet={handleUpdateActiveSet}
         onStop={handleStopActiveExercise}
+      />
+
+      {/* Diálogo para continuar entrenamiento guardado */}
+      <ContinueTrainingDialog
+        open={showContinueDialog}
+        draft={draft}
+        onContinue={handleContinueDraft}
+        onStartNew={handleStartNew}
       />
     </>
   );

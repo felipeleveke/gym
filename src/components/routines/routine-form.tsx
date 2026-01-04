@@ -191,12 +191,16 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
                 exercise: ve.exercise,
                 order_index: ve.order_index,
                 notes: ve.notes,
+                rest_after_exercise: ve.rest_after_exercise ?? null,
                 sets: ve.variant_exercise_sets?.sort((a: any, b: any) => a.set_number - b.set_number).map((s: any) => ({
                   set_number: s.set_number,
                   target_reps: s.target_reps,
                   target_rir: s.target_rir,
+                  target_rpe: s.target_rpe ?? null,
                   target_weight_percent: s.target_weight_percent,
                   target_weight: s.target_weight,
+                  target_tut: s.target_tut ?? null,
+                  rest_seconds: s.rest_seconds ?? null,
                   set_type: s.set_type,
                   notes: s.notes,
                 })) || [],
@@ -216,6 +220,11 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
                 default_sets: re.default_sets || 3,
                 default_reps: re.default_reps,
                 default_weight: re.default_weight,
+                default_rir: re.default_rir ?? null,
+                default_rpe: re.default_rpe ?? null,
+                default_tut: re.default_tut ?? null,
+                rest_between_sets: re.rest_between_sets ?? null,
+                rest_after_exercise: re.rest_after_exercise ?? null,
                 notes: re.notes || '',
               }));
             setExercises(loadedExercises);
