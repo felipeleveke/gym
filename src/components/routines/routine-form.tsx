@@ -209,6 +209,26 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
 
             setVariants(mappedVariants);
             setOriginalVariantIds(mappedVariants.map(v => v.id!).filter(Boolean));
+            
+            // También cargar ejercicios simples si existen (para permitir switch de modo)
+            if (routine.routine_exercises && routine.routine_exercises.length > 0) {
+              const loadedExercises = routine.routine_exercises
+                .sort((a: any, b: any) => a.order_index - b.order_index)
+                .map((re: any) => ({
+                  id: re.id,
+                  exercise: re.exercise,
+                  default_sets: re.default_sets || 3,
+                  default_reps: re.default_reps,
+                  default_weight: re.default_weight,
+                  default_rir: re.default_rir ?? null,
+                  default_rpe: re.default_rpe ?? null,
+                  default_tut: re.default_tut ?? null,
+                  rest_between_sets: re.rest_between_sets ?? null,
+                  rest_after_exercise: re.rest_after_exercise ?? null,
+                  notes: re.notes || '',
+                }));
+              setExercises(loadedExercises);
+            }
           } else if (routine.routine_exercises && routine.routine_exercises.length > 0) {
             // SIMPLE MODE
             setUseAdvancedMode(false);
@@ -383,6 +403,33 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
         })),
       };
       setVariants([defaultVariant]);
+    } else if (!advanced && variants.length > 0 && exercises.length === 0) {
+      // Convert variant to simple exercises when switching from advanced to simple mode
+      const sourceVariant = variants[activeVariantIndex] || variants.find(v => v.is_default) || variants[0];
+      if (sourceVariant && sourceVariant.exercises.length > 0) {
+        const convertedExercises: RoutineExerciseItem[] = sourceVariant.exercises.map((ex, index) => {
+          const firstSet = ex.sets[0];
+          const workingSets = ex.sets.filter(s => s.set_type === 'working');
+          const avgRestSeconds = workingSets.length > 0
+            ? Math.round(workingSets.reduce((sum, s) => sum + (s.rest_seconds || 0), 0) / workingSets.length)
+            : firstSet?.rest_seconds ?? 90;
+          
+          return {
+            id: `converted-${Date.now()}-${index}`,
+            exercise: ex.exercise,
+            default_sets: ex.sets.length || 3,
+            default_reps: firstSet?.target_reps || 10,
+            default_weight: firstSet?.target_weight ?? null,
+            default_rir: firstSet?.target_rir ?? null,
+            default_rpe: firstSet?.target_rpe ?? null,
+            default_tut: firstSet?.target_tut ?? null,
+            rest_between_sets: avgRestSeconds,
+            rest_after_exercise: ex.rest_after_exercise ?? null,
+            notes: ex.notes || '',
+          };
+        });
+        setExercises(convertedExercises);
+      }
     }
     setUseAdvancedMode(advanced);
   };
@@ -522,6 +569,16 @@ export function RoutineForm({ routineId }: RoutineFormProps) {
               description: `Hubo un problema guardando la variante ${variant.variant_name}`,
               variant: 'destructive',
             });
+          }
+        }
+      }
+
+      // Si cambiamos de modo avanzado a simple, eliminar todas las variantes existentes
+      if (!useAdvancedMode && routineId && originalVariantIds.length > 0) {
+        for (const variantId of originalVariantIds) {
+          const deleteResponse = await fetch(`/api/variants/${variantId}`, { method: 'DELETE' });
+          if (!deleteResponse.ok) {
+            console.error(`Error eliminando variante ${variantId}:`, await deleteResponse.text());
           }
         }
       }

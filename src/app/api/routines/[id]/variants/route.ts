@@ -46,6 +46,34 @@ export async function GET(
       return NextResponse.json({ error: 'Error fetching variants' }, { status: 500 });
     }
 
+    // If no variants exist, create a default one
+    if (!variants || variants.length === 0) {
+      const { data: defaultVariant, error: createError } = await supabase
+        .from('routine_variants')
+        .insert({
+          routine_id: routineId,
+          variant_name: 'Default',
+          intensity_level: 5,
+          is_default: true,
+        })
+        .select(`
+          *,
+          variant_exercises (
+            *,
+            exercise:exercises (*),
+            variant_exercise_sets (*)
+          )
+        `)
+        .single();
+
+      if (createError) {
+        console.error('Error creating default variant:', createError);
+        return NextResponse.json({ data: [] });
+      }
+
+      return NextResponse.json({ data: [defaultVariant] });
+    }
+
     return NextResponse.json({ data: variants || [] });
   } catch (error) {
     console.error('Error in GET /api/routines/[id]/variants:', error);

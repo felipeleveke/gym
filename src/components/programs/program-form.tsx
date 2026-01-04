@@ -245,12 +245,14 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
         const { data: routines } = await routinesResponse.json();
 
         // Then get variants for each routine
+        // The API will automatically create a default variant if none exists
         const allVariants: RoutineVariant[] = [];
         for (const routine of routines || []) {
           const variantsResponse = await fetch(`/api/routines/${routine.id}/variants`);
           if (variantsResponse.ok) {
             const { data: variants } = await variantsResponse.json();
             if (variants && variants.length > 0) {
+              // Agregar todas las variantes (incluye la variante por defecto si no había ninguna)
               allVariants.push(...variants.map((v: any) => ({
                 ...v,
                 workout_routine: { id: routine.id, name: routine.name },
