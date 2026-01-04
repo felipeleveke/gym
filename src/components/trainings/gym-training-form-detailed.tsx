@@ -273,8 +273,8 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                   rpe: re.default_rpe ?? null,
                   set_type: 'working' as const,
                   // Campos de temporización desde la rutina
-                  target_tut: re.default_tut || null,
-                  target_rest: re.rest_between_sets || null,
+                  target_tut: re.default_tut != null ? re.default_tut : null,
+                  target_rest: re.rest_between_sets != null ? re.rest_between_sets : null,
                 };
               });
               
@@ -357,15 +357,15 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                 }) => ({
                   id: `temp-${Date.now()}-${ve.order_index}-${set.set_number}`,
                   set_number: set.set_number,
-                  weight: set.target_weight || null, // Pre-fill target weight
+                  weight: set.target_weight || null,
                   reps: set.target_reps || null,
                   rir: set.target_rir !== undefined ? set.target_rir : null,
                   rpe: set.target_rpe !== undefined ? set.target_rpe : null,
                   set_type: set.set_type || 'working',
                   notes: set.notes || null,
                   // Campos de temporización desde la variante
-                  target_tut: set.target_tut || null,
-                  target_rest: set.rest_seconds || null,
+                  target_tut: set.target_tut != null ? set.target_tut : null,
+                  target_rest: set.rest_seconds != null ? set.rest_seconds : null,
                 }));
 
               return {
@@ -425,6 +425,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
   const [activeSetExerciseTime, setActiveSetExerciseTime] = useState<number>(0);
   // Estado para rastrear qué series deben completarse desde el modal
   const [setToCompleteFromModal, setSetToCompleteFromModal] = useState<string | null>(null);
+  // Estados para TUT en el modal
+  const [isModalTutMode, setIsModalTutMode] = useState<boolean>(false);
+  const [modalTutCountdown, setModalTutCountdown] = useState<number>(0);
   
   // Estados para indicadores de carga de resúmenes
   const [generatingExerciseSummaries, setGeneratingExerciseSummaries] = useState<Set<number>>(new Set());
@@ -523,12 +526,9 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
         // Actualizar el tiempo de ejercicio
         handleUpdateActiveSet(globalActiveSetId, 'duration', activeSetExerciseTime);
         
-        // Marcar la serie para que se complete y colapse
-        setSetToCompleteFromModal(globalActiveSetId);
-        
-        // Siempre iniciar descanso cuando se detiene desde el modal
-        // El entrenamiento solo se completa cuando se presiona el botón "Terminar entrenamiento" 
-        // en el SetTimer de la última serie
+        // NO marcar la serie como completada inmediatamente
+        // Solo iniciar el descanso. La serie se completará automáticamente
+        // cuando se inicie la siguiente serie o cuando el usuario la complete manualmente
         handleGlobalSetRest(globalActiveSetId);
         
         // Resetear el tiempo de ejercicio activo
@@ -1410,6 +1410,10 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                         onUpdateSets={(sets) => handleUpdateExerciseSets(index, sets)}
                         onUpdateNotes={(notes) => handleUpdateExerciseNotes(index, notes)}
                         onActiveSetExerciseTimeUpdate={handleActiveSetExerciseTimeUpdate}
+                        onTutStateUpdate={(isTutMode, countdown) => {
+                          setIsModalTutMode(isTutMode);
+                          setModalTutCountdown(countdown);
+                        }}
                         onSetCompleteFromModal={handleSetCompleteFromModal}
                         setToCompleteFromModal={setToCompleteFromModal}
                         onRemove={() => handleRemoveExercise(index)}
@@ -1509,6 +1513,8 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
         exercise={activeExerciseData?.exercise || null}
         set={activeExerciseData?.set || null}
         exerciseSeconds={activeSetExerciseTime}
+        isTutMode={isModalTutMode}
+        tutCountdown={modalTutCountdown}
         onUpdateSet={handleUpdateActiveSet}
         onStop={handleStopActiveExercise}
       />

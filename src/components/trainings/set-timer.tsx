@@ -24,6 +24,7 @@ interface SetTimerProps {
   rir?: number | null; // RIR de la serie
   onExerciseTimeUpdate?: (seconds: number) => void;
   onRestTimeUpdate?: (seconds: number) => void;
+  onTutStateUpdate?: (isTutMode: boolean, countdown: number) => void; // Callback para el estado del TUT
   onStart: () => void; // Callback cuando se inicia el ejercicio
   onRest: () => void; // Callback cuando se inicia el descanso
   onComplete?: () => void; // Callback cuando se completa (última serie)
@@ -45,6 +46,7 @@ export function SetTimer({
   rir,
   onExerciseTimeUpdate,
   onRestTimeUpdate,
+  onTutStateUpdate,
   onStart,
   onRest,
   onComplete,
@@ -72,6 +74,9 @@ export function SetTimer({
     if (targetTut && targetTut > 0) {
       setTutEnabled(true);
       setTutCountdown(targetTut);
+    } else {
+      setTutEnabled(false);
+      setTutCountdown(0);
     }
   }, [targetTut]);
   
@@ -91,6 +96,22 @@ export function SetTimer({
   const restIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const tutIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Refs para callbacks para evitar recrear intervalos cuando cambian
+  const onExerciseTimeUpdateRef = useRef(onExerciseTimeUpdate);
+  const onRestTimeUpdateRef = useRef(onRestTimeUpdate);
+  const onTutStateUpdateRef = useRef(onTutStateUpdate);
+  const onRestRef = useRef(onRest);
+  const onCompleteRef = useRef(onComplete);
+  
+  // Mantener refs actualizados
+  useEffect(() => {
+    onExerciseTimeUpdateRef.current = onExerciseTimeUpdate;
+    onRestTimeUpdateRef.current = onRestTimeUpdate;
+    onTutStateUpdateRef.current = onTutStateUpdate;
+    onRestRef.current = onRest;
+    onCompleteRef.current = onComplete;
+  });
 
   // Función para reproducir alarma
   const playAlarm = useCallback(() => {
@@ -146,6 +167,46 @@ export function SetTimer({
     }
   }, [isCompleted, state]);
 
+  // Sincronizar estado de descanso cuando se detiene desde el modal
+  useEffect(() => {
+    // Si esta serie está marcada como en descanso globalmente y está ejercitándose,
+    // cambiar automáticamente a estado de descanso
+    if (restingSetId === setId && (state === 'exercising' || state === 'tut_countdown')) {
+      // Guardar tiempo de ejercicio antes de cambiar a descanso
+      if (state === 'exercising') {
+        onExerciseTimeUpdateRef.current?.(exerciseSeconds);
+      } else if (state === 'tut_countdown' && targetTut) {
+        // Si estaba en TUT, el tiempo de ejercicio es el targetTut
+        onExerciseTimeUpdateRef.current?.(targetTut);
+      }
+      
+      // Cambiar a estado de descanso
+      setState('resting');
+      
+      // Detener intervalos de ejercicio
+      if (exerciseIntervalRef.current) {
+        clearInterval(exerciseIntervalRef.current);
+        exerciseIntervalRef.current = null;
+      }
+      if (tutIntervalRef.current) {
+        clearInterval(tutIntervalRef.current);
+        tutIntervalRef.current = null;
+      }
+      
+      // Iniciar countdown si está habilitado
+      if (restCountdownEnabled) {
+        setRestCountdown(restCountdownTarget);
+      }
+      
+      // Resetear tiempo de ejercicio
+      setExerciseSeconds(0);
+      setTutCountdown(0);
+      
+      // Llamar callback de descanso
+      onRestRef.current();
+    }
+  }, [restingSetId, setId, state, exerciseSeconds, targetTut, restCountdownEnabled, restCountdownTarget]);
+
   // Detener descanso cuando otra serie inicia
   useEffect(() => {
     if (state === 'resting' && activeSetId !== null && activeSetId !== setId) {
@@ -160,38 +221,60 @@ export function SetTimer({
         countdownIntervalRef.current = null;
       }
       // Guardar tiempo de descanso final
-      onRestTimeUpdate?.(restSeconds);
+      onRestTimeUpdateRef.current?.(restSeconds);
     }
-  }, [activeSetId, setId, state, restSeconds, onRestTimeUpdate]);
+  }, [activeSetId, setId, state, restSeconds]);
+
+  // Notificar estado del TUT al padre cuando cambia el modo (solo al entrar/salir, no cada segundo)
+  useEffect(() => {
+    if (state === 'tut_countdown') {
+      // Notificar entrada al modo TUT con el valor inicial
+      onTutStateUpdateRef.current?.(true, tutCountdown);
+    } else {
+      onTutStateUpdateRef.current?.(false, 0);
+    }
+    // Solo ejecutar cuando cambia el estado, el countdown se actualiza desde el interval
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state]);
 
   // Cuenta regresiva TUT (Tiempo Bajo Tensión)
   useEffect(() => {
-    if (state === 'tut_countdown' && tutCountdown > 0) {
-      tutIntervalRef.current = setInterval(() => {
-        setTutCountdown((prev) => {
-          if (prev <= 1) {
-            // TUT terminó, reproducir alerta y cambiar a estado de descanso
-            playAlarm();
-            // Guardar tiempo de ejercicio (el TUT es el tiempo de ejercicio)
-            onExerciseTimeUpdate?.(targetTut || 0);
-            if (isLastSet) {
-              setState('completed');
-              onComplete?.();
-            } else {
-              // Automáticamente pasar a descanso
-              setState('resting');
-              if (restCountdownEnabled) {
-                setRestCountdown(restCountdownTarget);
+    if (state === 'tut_countdown') {
+      // Solo crear el interval si no existe ya
+      if (!tutIntervalRef.current) {
+        tutIntervalRef.current = setInterval(() => {
+          setTutCountdown((prev) => {
+            const newValue = prev - 1;
+            
+            if (newValue <= 0) {
+              // TUT terminó, reproducir alerta y cambiar a estado de descanso
+              playAlarm();
+              // Guardar tiempo de ejercicio (el TUT es el tiempo de ejercicio)
+              onExerciseTimeUpdateRef.current?.(targetTut || 0);
+              // Notificar que TUT terminó
+              onTutStateUpdateRef.current?.(false, 0);
+              if (isLastSet) {
+                setState('completed');
+                onCompleteRef.current?.();
+              } else {
+                // Automáticamente pasar a descanso
+                setState('resting');
+                if (restCountdownEnabled) {
+                  setRestCountdown(restCountdownTarget);
+                }
+                onRestRef.current();
               }
-              onRest();
+              return 0;
             }
-            return 0;
-          }
-          // Actualizar tiempo de ejercicio mientras corre el TUT
-          onExerciseTimeUpdate?.(targetTut ? targetTut - prev + 1 : 0);
-          return prev - 1;
-        });
-      }, 1000);
+            
+            // Notificar el nuevo valor del countdown al padre
+            onTutStateUpdateRef.current?.(true, newValue);
+            // Actualizar tiempo de ejercicio mientras corre el TUT
+            onExerciseTimeUpdateRef.current?.(targetTut ? targetTut - newValue : 0);
+            return newValue;
+          });
+        }, 1000);
+      }
     } else {
       if (tutIntervalRef.current) {
         clearInterval(tutIntervalRef.current);
@@ -202,9 +285,10 @@ export function SetTimer({
     return () => {
       if (tutIntervalRef.current) {
         clearInterval(tutIntervalRef.current);
+        tutIntervalRef.current = null;
       }
     };
-  }, [state, tutCountdown, playAlarm, targetTut, restCountdownEnabled, restCountdownTarget, onExerciseTimeUpdate, onRest]);
+  }, [state, playAlarm, targetTut, isLastSet, restCountdownEnabled, restCountdownTarget]);
 
 
   // Cronómetro de ejercicio (cuando está corriendo)
@@ -213,7 +297,7 @@ export function SetTimer({
       exerciseIntervalRef.current = setInterval(() => {
         setExerciseSeconds((prev) => {
           const newValue = prev + 1;
-          onExerciseTimeUpdate?.(newValue);
+          onExerciseTimeUpdateRef.current?.(newValue);
           return newValue;
         });
       }, 1000);
@@ -229,7 +313,7 @@ export function SetTimer({
         clearInterval(exerciseIntervalRef.current);
       }
     };
-  }, [state, onExerciseTimeUpdate]);
+  }, [state]);
 
   // Cronómetro de descanso (siempre corre cuando está en descanso)
   useEffect(() => {
@@ -239,7 +323,7 @@ export function SetTimer({
       restIntervalRef.current = setInterval(() => {
         setRestSeconds((prev) => {
           const newValue = prev + 1;
-          onRestTimeUpdate?.(newValue);
+          onRestTimeUpdateRef.current?.(newValue);
           return newValue;
         });
       }, 1000);
@@ -255,7 +339,7 @@ export function SetTimer({
         clearInterval(restIntervalRef.current);
       }
     };
-  }, [state, onRestTimeUpdate]);
+  }, [state]);
 
   // Countdown de descanso
   useEffect(() => {
@@ -296,16 +380,19 @@ export function SetTimer({
   };
 
   const handleStartExercise = () => {
-    // No permitir iniciar si hay otra serie activa o en descanso
+    // No permitir iniciar si hay otra serie activa (ejercitando)
     const hasOtherActiveSet = activeSetId !== null && activeSetId !== setId;
-    const hasOtherRestingSet = restingSetId !== null && restingSetId !== setId;
-    if (hasOtherActiveSet || hasOtherRestingSet) {
+    if (hasOtherActiveSet) {
       return;
     }
     if (state === 'idle' && canStart && canStartExercise()) {
       onStart();
+      
+      // Verificar directamente targetTut además de tutEnabled para mayor robustez
       // Si TUT está habilitado y hay un objetivo, usar cuenta regresiva
-      if (tutEnabled && targetTut && targetTut > 0) {
+      const shouldUseTut = (tutEnabled || (targetTut != null && targetTut > 0)) && targetTut != null && targetTut > 0;
+      
+      if (shouldUseTut) {
         setState('tut_countdown');
         setTutCountdown(targetTut);
       } else {
@@ -319,14 +406,14 @@ export function SetTimer({
   const handleStartRest = () => {
     if (state === 'exercising' && canStartRest()) {
       // Guardar tiempo de ejercicio
-      onExerciseTimeUpdate?.(exerciseSeconds);
+      onExerciseTimeUpdateRef.current?.(exerciseSeconds);
       // Cambiar a estado de descanso (el botón mostrará "Completado")
       setState('resting');
       // Iniciar countdown si está habilitado
       if (restCountdownEnabled) {
         setRestCountdown(restCountdownTarget);
       }
-      onRest();
+      onRestRef.current();
     }
   };
 
@@ -334,8 +421,8 @@ export function SetTimer({
     if (state === 'exercising' && canStartRest()) {
       setState('completed');
       // Guardar tiempo de ejercicio
-      onExerciseTimeUpdate?.(exerciseSeconds);
-      onComplete?.();
+      onExerciseTimeUpdateRef.current?.(exerciseSeconds);
+      onCompleteRef.current?.();
     }
   };
 
@@ -399,10 +486,9 @@ export function SetTimer({
   };
 
   const getDisabledReason = () => {
-    // Verificar si hay otra serie activa o en descanso
+    // Verificar si hay otra serie activa (ejercitando)
     const hasOtherActiveSet = activeSetId !== null && activeSetId !== setId;
-    const hasOtherRestingSet = restingSetId !== null && restingSetId !== setId;
-    if (state === 'idle' && (hasOtherActiveSet || hasOtherRestingSet)) {
+    if (state === 'idle' && hasOtherActiveSet) {
       return 'Hay otra serie en curso. Completa o detén la serie activa antes de iniciar una nueva';
     }
     if (state === 'idle' && !canStartExercise()) {
@@ -426,10 +512,9 @@ export function SetTimer({
       return true;
     }
     if (state === 'idle') {
-      // Deshabilitar si hay otra serie activa o en descanso, o si no cumple las condiciones para iniciar
+      // Deshabilitar si hay otra serie activa (ejercitando), o si no cumple las condiciones para iniciar
       const hasOtherActiveSet = activeSetId !== null && activeSetId !== setId;
-      const hasOtherRestingSet = restingSetId !== null && restingSetId !== setId;
-      return hasOtherActiveSet || hasOtherRestingSet || !canStart || !canStartExercise();
+      return hasOtherActiveSet || !canStart || !canStartExercise();
     }
     if (state === 'exercising') {
       return !canStartRest();
@@ -526,9 +611,14 @@ export function SetTimer({
             </div>
           ) : (
             <div className="flex flex-col">
-              <span className="text-[10px] sm:text-xs text-muted-foreground">Esperando</span>
-              <span className="text-xs sm:text-sm font-mono font-semibold text-muted-foreground">
-                {tutEnabled && targetTut ? formatTime(targetTut) : '00:00'}
+              <span className="text-[10px] sm:text-xs text-muted-foreground">
+                {targetTut != null && targetTut > 0 ? 'TUT objetivo' : 'Esperando'}
+              </span>
+              <span className={cn(
+                "text-xs sm:text-sm font-mono font-semibold",
+                targetTut != null && targetTut > 0 ? "text-orange-500" : "text-muted-foreground"
+              )}>
+                {targetTut != null && targetTut > 0 ? formatTime(targetTut) : '00:00'}
               </span>
             </div>
           )}

@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,6 +21,7 @@ interface ExerciseSet {
   set_type?: 'warmup' | 'approach' | 'working' | 'bilbo' | null;
   theoretical_one_rm?: number | null;
   percentage_one_rm?: number | null;
+  target_tut?: number | null;
 }
 
 interface Exercise {
@@ -35,6 +37,8 @@ interface ActiveExerciseModalProps {
   exercise: Exercise | null;
   set: ExerciseSet | null;
   exerciseSeconds: number;
+  isTutMode?: boolean; // Si está en modo cuenta regresiva TUT
+  tutCountdown?: number; // Segundos restantes del TUT
   onUpdateSet: (setId: string, field: keyof ExerciseSet, value: any) => void;
   onStop: () => void;
 }
@@ -44,6 +48,8 @@ export function ActiveExerciseModal({
   exercise,
   set,
   exerciseSeconds,
+  isTutMode = false,
+  tutCountdown = 0,
   onUpdateSet,
   onStop,
 }: ActiveExerciseModalProps) {
@@ -87,7 +93,7 @@ export function ActiveExerciseModal({
     <Dialog open={open} modal={true}>
       <DialogContent 
         className={cn(
-          "max-w-[98vw] max-h-[98vh] w-[98vw] h-[98vh]",
+          "max-w-[98vw] max-h-[90vh] w-[98vw]",
           "flex flex-col gap-6 p-6 sm:p-8",
           "border-0 bg-background rounded-lg",
           "!translate-x-[-50%] !translate-y-[-50%] !left-[50%] !top-[50%]",
@@ -95,21 +101,25 @@ export function ActiveExerciseModal({
         )}
         style={{
           maxWidth: '98vw',
-          maxHeight: '98vh',
+          maxHeight: '90vh',
           width: '98vw',
-          height: '98vh',
         }}
         onInteractOutside={(e) => e.preventDefault()}
         onEscapeKeyDown={(e) => e.preventDefault()}
       >
-        <div className="flex flex-col items-center justify-center flex-1 gap-8 sm:gap-12 overflow-y-auto overflow-x-hidden min-h-0 w-full">
+        {/* DialogTitle oculto para accesibilidad */}
+        <VisuallyHidden>
+          <DialogTitle>Ejercicio en curso: {exercise.name}</DialogTitle>
+        </VisuallyHidden>
+        
+        <div className="flex flex-col items-center justify-center flex-1 gap-4 sm:gap-6 overflow-y-auto overflow-x-hidden min-h-0 w-full">
           {/* Nombre del ejercicio */}
           <div className="text-center space-y-2">
-            <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">
+            <h2 className="text-xl sm:text-2xl font-bold">
               {exercise.name}
             </h2>
             {set.weight && (
-              <p className="text-lg sm:text-xl md:text-2xl text-muted-foreground">
+              <p className="text-base sm:text-lg text-muted-foreground">
                 {set.weight} kg
                 {set.theoretical_one_rm && set.percentage_one_rm && (
                   <span className="text-base sm:text-lg md:text-xl ml-2 opacity-80">
@@ -125,18 +135,33 @@ export function ActiveExerciseModal({
             )}
           </div>
 
-          {/* Cronómetro grande */}
+          {/* Cronómetro o cuenta regresiva TUT */}
           <div className="text-center space-y-2">
-            <Label className="text-sm sm:text-base text-muted-foreground">
-              Tiempo de ejercicio
+            <Label className={cn(
+              "text-sm sm:text-base",
+              isTutMode ? "text-orange-500 font-semibold" : "text-muted-foreground"
+            )}>
+              {isTutMode ? '⏱️ Cuenta regresiva TUT' : 'Tiempo de ejercicio'}
             </Label>
-            <div className="text-6xl sm:text-7xl md:text-8xl font-mono font-bold text-primary">
-              {formatTime(exerciseSeconds)}
+            <div className={cn(
+              "text-5xl sm:text-6xl font-mono font-bold",
+              isTutMode 
+                ? tutCountdown <= 5 
+                  ? "text-destructive animate-pulse" 
+                  : "text-orange-500"
+                : "text-primary"
+            )}>
+              {isTutMode ? formatTime(tutCountdown) : formatTime(exerciseSeconds)}
             </div>
+            {isTutMode && set.target_tut && (
+              <p className="text-sm text-muted-foreground">
+                Objetivo: {formatTime(set.target_tut)}
+              </p>
+            )}
           </div>
 
           {/* Campos de entrada */}
-          <div className="w-full max-w-md space-y-6">
+          <div className="w-full max-w-md space-y-4">
             {/* Reps */}
             <div className="space-y-2">
               <Label htmlFor="modal-reps" className="text-base sm:text-lg font-semibold">
@@ -157,7 +182,7 @@ export function ActiveExerciseModal({
                     onUpdateSet(set.id, 'reps', repsNum);
                   }
                 }}
-                className="h-12 sm:h-14 text-lg sm:text-xl text-center"
+                className="h-10 sm:h-12 text-lg sm:text-xl text-center"
                 autoFocus
               />
             </div>
@@ -183,7 +208,7 @@ export function ActiveExerciseModal({
                     onUpdateSet(set.id, 'rir', rirNum);
                   }
                 }}
-                className="h-12 sm:h-14 text-lg sm:text-xl text-center"
+                className="h-10 sm:h-12 text-lg sm:text-xl text-center"
               />
             </div>
 
@@ -204,8 +229,8 @@ export function ActiveExerciseModal({
                     onUpdateSet(set.id, 'notes', value.trim() || null);
                   }
                 }}
-                className="min-h-[100px] sm:min-h-[120px] text-base sm:text-lg resize-none"
-                rows={4}
+                className="min-h-[60px] sm:min-h-[80px] text-base sm:text-lg resize-none"
+                rows={2}
               />
             </div>
           </div>
@@ -216,7 +241,7 @@ export function ActiveExerciseModal({
               onClick={handleStop}
               disabled={!canStop()}
               size="lg"
-              className="w-full h-14 sm:h-16 text-lg sm:text-xl font-semibold"
+              className="w-full h-12 sm:h-14 text-lg sm:text-xl font-semibold"
             >
               Detener Ejercicio
             </Button>

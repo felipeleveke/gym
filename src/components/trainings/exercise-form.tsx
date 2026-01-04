@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { GripVertical, Trash2, Plus, X, Loader2, Info, ChevronDown, ChevronUp, History } from 'lucide-react';
+import { GripVertical, Trash2, Plus, X, Loader2, Info, ChevronDown, ChevronUp, History, Pencil } from 'lucide-react';
 import { ExerciseHistoryModal } from './exercise-history-modal';
 import { cn } from '@/lib/utils';
 import { SetTimer } from './set-timer';
@@ -68,6 +68,7 @@ interface ExerciseFormProps {
   onTrainingComplete?: () => void;
   onFirstExerciseStart?: () => void;
   onActiveSetExerciseTimeUpdate?: (seconds: number) => void;
+  onTutStateUpdate?: (isTutMode: boolean, countdown: number) => void;
   onSetCompleteFromModal?: (setId: string) => void;
   setToCompleteFromModal?: string | null;
   previousMarks?: {
@@ -110,6 +111,7 @@ export function ExerciseForm({
   onTrainingComplete,
   onFirstExerciseStart,
   onActiveSetExerciseTimeUpdate,
+  onTutStateUpdate,
   onSetCompleteFromModal,
   setToCompleteFromModal,
   previousMarks,
@@ -137,6 +139,34 @@ export function ExerciseForm({
       onSetCompleteFromModal?.(setToCompleteFromModal);
     }
   }, [setToCompleteFromModal, completedSetIds]);
+
+  // Sincronizar restingSetId local con globalRestingSetId
+  useEffect(() => {
+    if (globalRestingSetId) {
+      // Verificar si alguna serie de este ejercicio está en descanso
+      const setInRest = sets.find(set => set.id === globalRestingSetId);
+      if (setInRest) {
+        // Si la serie está en descanso globalmente, actualizar estado local
+        setRestingSetId(globalRestingSetId);
+        // Asegurarse de que no esté marcada como activa
+        if (activeSetId === globalRestingSetId) {
+          setActiveSetId(null);
+        }
+      }
+    } else {
+      // Si no hay serie en descanso globalmente, limpiar estado local
+      // pero solo si no está completada (para no interferir con series completadas)
+      if (restingSetId) {
+        const restingSet = sets.find(set => set.id === restingSetId);
+        if (restingSet && !completedSetIds.has(restingSetId)) {
+          // Solo limpiar si la serie no está completada
+          // El descanso puede continuar aunque globalRestingSetId sea null
+          // si el usuario quiere seguir descansando
+        }
+      }
+    }
+  }, [globalRestingSetId, sets, activeSetId, restingSetId, completedSetIds]);
+
   const addSet = () => {
     const newSet: ExerciseSet = {
       id: `temp-${Date.now()}-${sets.length}`,
@@ -224,6 +254,19 @@ export function ExerciseForm({
   // Función para manejar cuando se completa una serie desde el modal
   const handleSetCompleteFromModal = (setId: string) => {
     handleSetComplete(setId);
+  };
+
+  // Función para alternar el estado colapsado de una serie
+  const toggleSetCollapsed = (setId: string) => {
+    setCollapsedSetIds((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(setId)) {
+        newSet.delete(setId);
+      } else {
+        newSet.add(setId);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -376,9 +419,21 @@ export function ExerciseForm({
                             {set.duration && ` (${Math.floor(set.duration / 60)}:${String(set.duration % 60).padStart(2, '0')})`}
                           </span>
                         </div>
-                        <Badge variant="outline" className="text-xs shrink-0">
-                          Completado
-                        </Badge>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 sm:h-7 sm:w-7"
+                            onClick={() => toggleSetCollapsed(set.id)}
+                            title="Editar serie"
+                          >
+                            <Pencil className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                          </Button>
+                          <Badge variant="outline" className="text-xs shrink-0">
+                            Completado
+                          </Badge>
+                        </div>
                       </div>
                       {set.notes && (
                         <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
@@ -430,6 +485,18 @@ export function ExerciseForm({
                           <span className="text-xs sm:text-sm font-medium text-muted-foreground">
                             #{set.set_number}
                           </span>
+                        )}
+                        {completedSetIds.has(set.id) && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6 sm:h-7 sm:w-7"
+                            onClick={() => toggleSetCollapsed(set.id)}
+                            title="Colapsar serie"
+                          >
+                            <ChevronUp className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+                          </Button>
                         )}
                       </div>
                     
@@ -589,6 +656,12 @@ export function ExerciseForm({
                         }}
                         onRestTimeUpdate={(seconds) => {
                           updateSet(set.id, 'rest_time', seconds);
+                        }}
+                        onTutStateUpdate={(isTutMode, countdown) => {
+                          // Si esta serie está activa globalmente, notificar al componente principal
+                          if (globalActiveSetId === set.id && onTutStateUpdate) {
+                            onTutStateUpdate(isTutMode, countdown);
+                          }
                         }}
                         onStart={() => handleSetStart(set.id)}
                         onRest={() => handleSetRest(set.id)}
