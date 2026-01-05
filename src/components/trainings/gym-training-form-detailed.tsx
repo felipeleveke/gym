@@ -331,9 +331,51 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
           throw new Error('Variante no encontrada');
         }
 
-        // Pre-poblar ejercicios desde la variante
-        if (variant.variant_exercises && Array.isArray(variant.variant_exercises)) {
-          const variantExercises: TrainingExercise[] = variant.variant_exercises
+        let exercisesToLoad = variant.variant_exercises || [];
+        
+        // Si la variante no tiene ejercicios, cargar los ejercicios simples de la rutina base
+        if (exercisesToLoad.length === 0) {
+          const routineResponse = await fetch(`/api/routines/${routineId}`);
+          if (routineResponse.ok) {
+            const { data: routineData } = await routineResponse.json();
+            if (routineData?.routine_exercises && routineData.routine_exercises.length > 0) {
+              // Convertir routine_exercises al formato de variant_exercises
+              exercisesToLoad = routineData.routine_exercises.map((re: any) => {
+                // Crear sets a partir de los valores por defecto
+                const sets = [];
+                const numSets = re.default_sets || 3; // Default 3 sets si no está definido
+                
+                for (let i = 1; i <= numSets; i++) {
+                  sets.push({
+                    id: `${re.id}-set-${i}`,
+                    set_number: i,
+                    target_reps: re.default_reps || null,
+                    target_rir: re.default_rir !== null && re.default_rir !== undefined ? re.default_rir : null,
+                    target_rpe: re.default_rpe || null,
+                    target_weight: re.default_weight || null,
+                    target_tut: re.default_tut || null,
+                    rest_seconds: re.rest_between_sets || null,
+                    set_type: 'working',
+                  });
+                }
+
+                return {
+                  id: re.id,
+                  order_index: re.order_index,
+                  exercise_id: re.exercise_id,
+                  exercise: re.exercise,
+                  notes: re.notes,
+                  rest_after_exercise: re.rest_after_exercise,
+                  variant_exercise_sets: sets,
+                };
+              });
+            }
+          }
+        }
+
+        // Pre-poblar ejercicios desde la variante o rutina base
+        if (exercisesToLoad && Array.isArray(exercisesToLoad) && exercisesToLoad.length > 0) {
+          const variantExercises: TrainingExercise[] = exercisesToLoad
             .sort((a: { order_index: number }, b: { order_index: number }) => a.order_index - b.order_index)
             .map((ve: {
               order_index: number;
@@ -394,7 +436,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
 
         toast({
           title: 'Rutina cargada',
-          description: `Se han cargado ${variant.variant_exercises?.length || 0} ejercicios desde el programa.`,
+          description: `Se han cargado ${exercisesToLoad?.length || 0} ejercicios desde el programa.`,
         });
       } catch (error) {
         console.error('Error cargando variante:', error);

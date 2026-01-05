@@ -16,7 +16,8 @@ import {
   Play,
   CalendarDays,
   CheckCircle2,
-  BarChart3
+  BarChart3,
+  Dumbbell
 } from "lucide-react"
 import {
   Collapsible,
@@ -425,6 +426,12 @@ export function ProgramDetailClient({ id }: { id: string }) {
                                       const isCompleted = completedTrainings.length > 0
                                       const latestTraining = completedTrainings[0] // Already sorted by date desc
                                       
+                                      // Calculate summary stats
+                                      const sortedExercises = exercises.sort((a, b) => a.order_index - b.order_index)
+                                      const totalSets = exercises.reduce((acc, ex) => acc + (ex.variant_exercise_sets?.length || 0), 0)
+                                      const workingSets = exercises.reduce((acc, ex) => 
+                                        acc + (ex.variant_exercise_sets?.filter(s => s.set_type === 'working').length || 0), 0)
+                                      
                                       return (
                                         <div key={routine.id} className={`bg-background rounded-lg border overflow-hidden ${isCompleted ? 'border-green-300 dark:border-green-800' : ''}`}>
                                           {/* Routine Header */}
@@ -433,7 +440,7 @@ export function ProgramDetailClient({ id }: { id: string }) {
                                             onClick={() => toggleRoutine(routine.id)}
                                           >
                                             <div className="flex-1 min-w-0">
-                                              <div className="flex items-center gap-2">
+                                              <div className="flex items-center gap-2 flex-wrap">
                                                 <h4 className="font-medium text-sm">
                                                   {routine.routine_variant?.workout_routine?.name || "Rutina"} - {routine.routine_variant?.variant_name}
                                                 </h4>
@@ -447,11 +454,6 @@ export function ProgramDetailClient({ id }: { id: string }) {
                                               <p className="text-xs text-muted-foreground">
                                                 {format(new Date(routine.scheduled_at), "EEEE dd/MM 'a las' HH:mm")}
                                               </p>
-                                              {!isRoutineExpanded && exercises.length > 0 && (
-                                                <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-                                                  {exercises.sort((a,b) => a.order_index - b.order_index).map(ex => ex.exercise.name).join(', ')}
-                                                </p>
-                                              )}
                                             </div>
                                             <div className="flex items-center gap-2 ml-2 flex-shrink-0">
                                               {isCompleted && latestTraining ? (
@@ -490,12 +492,64 @@ export function ProgramDetailClient({ id }: { id: string }) {
                                             </div>
                                           </div>
 
-                                          {/* Routine Details - Exercises */}
+                                          {/* Routine Summary - Always visible */}
+                                          <div className="border-t bg-muted/10 px-3 py-2">
+                                            {exercises.length > 0 ? (
+                                              <>
+                                                {/* Stats Row */}
+                                                <div className="flex items-center gap-3 text-xs text-muted-foreground mb-2">
+                                                  <span className="flex items-center gap-1">
+                                                    <Dumbbell className="h-3 w-3" />
+                                                    {exercises.length} ejercicio{exercises.length !== 1 ? 's' : ''}
+                                                  </span>
+                                                  <span>•</span>
+                                                  <span>{workingSets} series de trabajo</span>
+                                                  {totalSets > workingSets && (
+                                                    <>
+                                                      <span>•</span>
+                                                      <span>{totalSets} series total</span>
+                                                    </>
+                                                  )}
+                                                </div>
+                                                
+                                                {/* Compact Exercise List */}
+                                                <div className="space-y-1.5">
+                                                  {sortedExercises.map((ex, exIndex) => {
+                                                    const workingSetCount = ex.variant_exercise_sets?.filter(s => s.set_type === 'working').length || 0
+                                                    const firstWorkingSet = ex.variant_exercise_sets?.find(s => s.set_type === 'working')
+                                                    
+                                                    return (
+                                                      <div 
+                                                        key={ex.id} 
+                                                        className="flex items-center gap-2 text-sm py-1 px-2 rounded bg-background/50 border border-border/50"
+                                                      >
+                                                        <span className="text-xs font-mono text-muted-foreground w-5 text-center flex-shrink-0">
+                                                          {exIndex + 1}
+                                                        </span>
+                                                        <span className="font-medium truncate flex-1">{ex.exercise.name}</span>
+                                                        {workingSetCount > 0 && firstWorkingSet && (
+                                                          <span className="text-xs text-muted-foreground flex-shrink-0">
+                                                            {workingSetCount}×{firstWorkingSet.target_reps || '?'}
+                                                            {firstWorkingSet.target_weight && ` @${firstWorkingSet.target_weight}kg`}
+                                                            {firstWorkingSet.target_weight_percent && ` @${firstWorkingSet.target_weight_percent}%`}
+                                                          </span>
+                                                        )}
+                                                      </div>
+                                                    )
+                                                  })}
+                                                </div>
+                                              </>
+                                            ) : (
+                                              <p className="text-xs text-muted-foreground italic">
+                                                Sin ejercicios definidos en esta variante
+                                              </p>
+                                            )}
+                                          </div>
+
+                                          {/* Routine Details - Expanded view with full sets table */}
                                           {isRoutineExpanded && exercises.length > 0 && (
                                             <div className="border-t bg-muted/20 p-3 space-y-3">
-                                              {exercises
-                                                .sort((a, b) => a.order_index - b.order_index)
-                                                .map((ex, exIndex) => (
+                                              {sortedExercises.map((ex, exIndex) => (
                                                   <div key={ex.id} className="bg-background rounded border p-3">
                                                     <div className="flex items-center gap-2 mb-2">
                                                       <span className="text-xs font-mono bg-primary/10 text-primary px-1.5 py-0.5 rounded">
