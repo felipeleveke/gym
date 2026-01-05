@@ -296,6 +296,7 @@ export function ExerciseForm({
           <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
             <div className="flex flex-col gap-0.5 sm:gap-1">
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 sm:h-6 sm:w-6 cursor-move"
@@ -305,6 +306,7 @@ export function ExerciseForm({
                 <GripVertical className="h-3 w-3 sm:h-4 sm:w-4" />
               </Button>
               <Button
+                type="button"
                 variant="ghost"
                 size="icon"
                 className="h-5 w-5 sm:h-6 sm:w-6 cursor-move"
@@ -359,6 +361,7 @@ export function ExerciseForm({
           </div>
           <div className="flex items-center gap-1">
             <Button 
+              type="button"
               variant="ghost" 
               size="icon" 
               onClick={() => setExerciseCollapsed(!exerciseCollapsed)} 
@@ -370,7 +373,7 @@ export function ExerciseForm({
                 <ChevronUp className="h-4 w-4 sm:h-5 sm:w-5" />
               )}
             </Button>
-            <Button variant="ghost" size="icon" onClick={onRemove} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
+            <Button type="button" variant="ghost" size="icon" onClick={onRemove} className="h-8 w-8 sm:h-9 sm:w-9 shrink-0">
               <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-destructive" />
             </Button>
           </div>
