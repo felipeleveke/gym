@@ -393,7 +393,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
                   target_reps?: number;
                   target_rir?: number;
                   target_rpe?: number;
-                  set_type?: string;
+                  set_type?: 'warmup' | 'approach' | 'working' | 'bilbo';
                   notes?: string;
                   target_tut?: number;
                   rest_seconds?: number;
