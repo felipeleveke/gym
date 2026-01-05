@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api';
 
 export interface TrainingType {
   id: string;
@@ -43,7 +44,7 @@ export function useTrainingTypes() {
 
     try {
       setIsLoading(true);
-      const response = await fetch('/api/training-types');
+      const response = await apiFetch('/api/training-types');
       
       if (!response.ok) {
         throw new Error('Error al cargar tipos de entrenamiento');

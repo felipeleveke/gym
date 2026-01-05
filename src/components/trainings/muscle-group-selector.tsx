@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
 import { COMMON_MUSCLE_GROUPS, getExistingMuscleGroups, MuscleGroupDB } from '@/lib/muscle-groups';
 import { X, Plus, Edit2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 import {
   Select,
   SelectContent,
@@ -81,7 +82,7 @@ export function MuscleGroupSelector({ selectedGroups, onChange }: MuscleGroupSel
     if (trimmed && !selectedGroups.find((g) => g.name === trimmed)) {
       try {
         // Persistir en la base de datos
-        await fetch('/api/muscle-groups', {
+        await apiFetch('/api/muscle-groups', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ name: trimmed, category: newGroupCategory }),

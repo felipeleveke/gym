@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 interface ExerciseSet {
   id: string;
@@ -90,7 +91,7 @@ export function GymTrainingCard({
 
     setIsCreatingRoutine(true);
     try {
-      const response = await fetch('/api/routines/from-training', {
+      const response = await apiFetch('/api/routines/from-training', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

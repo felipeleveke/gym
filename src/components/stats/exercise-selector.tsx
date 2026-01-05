@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { apiFetch } from '@/lib/api';
 
 interface Exercise {
     id: string;
@@ -32,7 +33,7 @@ export function ExerciseSelector({ value, onChange, className }: ExerciseSelecto
     useEffect(() => {
         const fetchExercises = async () => {
             try {
-                const response = await fetch('/api/stats/exercises');
+                const response = await apiFetch('/api/stats/exercises');
                 if (!response.ok) throw new Error('Error al cargar ejercicios');
                 
                 const data = await response.json();

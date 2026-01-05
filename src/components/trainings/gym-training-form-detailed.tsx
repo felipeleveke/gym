@@ -22,6 +22,7 @@ import { ExerciseForm } from './exercise-form';
 import { EditableMarkdown } from '@/components/ui/editable-markdown';
 import { ActiveExerciseModal } from './active-exercise-modal';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
+import { apiFetch } from '@/lib/api';
 
 interface Exercise {
   id: string;
@@ -955,7 +956,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
 
     setGeneratingTrainingSummary(true);
     try {
-      const response = await fetch('/api/ai/summarize-training-notes', {
+      const response = await apiFetch('/api/ai/summarize-training-notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ exerciseNotes })
@@ -1016,7 +1017,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
 
       setGeneratingExerciseSummaries(prev => new Set(prev).add(index));
       try {
-        const response = await fetch('/api/ai/summarize-exercise-notes', {
+        const response = await apiFetch('/api/ai/summarize-exercise-notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1066,7 +1067,7 @@ export function GymTrainingFormDetailed({ onBack, initialData, trainingId, routi
     if (exerciseNotes.length > 0) {
       setGeneratingTrainingSummary(true);
       try {
-        const response = await fetch('/api/ai/summarize-training-notes', {
+        const response = await apiFetch('/api/ai/summarize-training-notes', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ exerciseNotes })

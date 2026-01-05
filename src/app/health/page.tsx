@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { apiFetch } from '@/lib/api';
 
 interface HealthCheck {
   timestamp: string;
@@ -29,7 +30,7 @@ export default function HealthPage() {
     setError(null);
     
     try {
-      const response = await fetch('/api/health');
+      const response = await apiFetch('/api/health');
       const data = await response.json();
       setHealth(data);
     } catch (err: any) {

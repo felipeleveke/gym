@@ -87,30 +87,14 @@ export function ExercisesPageClient() {
   const handleDeleteConfirm = async () => {
     if (!deletingExercise) return;
 
-    if (deleteConfirmStep === 1) {
-      setDeleteConfirmStep(2);
-      return;
-    }
-
-    if (deleteConfirmStep === 2) {
-      if (deleteConfirmText !== deletingExercise.name) {
-        toast({
-          title: 'Error',
-          description: 'El nombre no coincide. Por favor, escribe el nombre exacto del ejercicio.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      try {
-        await deleteExercise(deletingExercise.id);
-        setDeletingExercise(null);
-        setDeleteConfirmStep(0);
-        setDeleteConfirmText('');
-        setShowDetailModal(false);
-      } catch (error) {
-        // Error ya manejado en el hook
-      }
+    try {
+      await deleteExercise(deletingExercise.id);
+      setDeletingExercise(null);
+      setDeleteConfirmStep(0);
+      setDeleteConfirmText('');
+      setShowDetailModal(false);
+    } catch (error) {
+      // Error ya manejado en el hook
     }
   };
 
@@ -237,38 +221,28 @@ export function ExercisesPageClient() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>
-              {deleteConfirmStep === 1
-                ? '¿Eliminar ejercicio?'
-                : 'Confirmar eliminación'}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {deleteConfirmStep === 1 ? (
-                <>
+            <AlertDialogTitle>¿Eliminar ejercicio?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div>
+                <p>
                   Estás a punto de eliminar el ejercicio{' '}
                   <strong>&quot;{deletingExercise?.name}&quot;</strong>. Esta acción no se puede deshacer.
-                  <br />
-                  <br />
+                </p>
+                <p className="mt-3">
                   Para confirmar, escribe el nombre del ejercicio:
-                </>
-              ) : (
-                <>
-                  Escribe <strong>&quot;{deletingExercise?.name}&quot;</strong> para confirmar la eliminación:
-                </>
-              )}
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {deleteConfirmStep === 2 && (
-            <div className="py-4">
-              <Input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder={deletingExercise?.name}
-                autoFocus
-              />
-            </div>
-          )}
+          <div className="py-2">
+            <Input
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder={deletingExercise?.name}
+              autoFocus
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel
               onClick={() => {
@@ -281,9 +255,10 @@ export function ExercisesPageClient() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteConfirmText !== deletingExercise?.name}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50"
             >
-              {deleteConfirmStep === 1 ? 'Continuar' : 'Eliminar'}
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

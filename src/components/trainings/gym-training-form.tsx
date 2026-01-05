@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
 const gymTrainingSchema = z.object({
   date: z.string().min(1, 'La fecha es requerida'),
@@ -55,7 +56,7 @@ export function GymTrainingForm({ onBack }: GymTrainingFormProps) {
         ? data.tags.split(',').map((tag) => tag.trim()).filter(Boolean)
         : [];
 
-      const response = await fetch('/api/trainings', {
+      const response = await apiFetch('/api/trainings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

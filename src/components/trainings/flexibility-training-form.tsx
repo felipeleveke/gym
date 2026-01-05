@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DateTimePicker } from '@/components/ui/date-time-picker';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
 const flexibilityTrainingSchema = z.object({
   date: z.string().min(1, 'La fecha es requerida'),
@@ -56,7 +57,7 @@ export function FlexibilityTrainingForm({ onBack }: FlexibilityTrainingFormProps
         : [];
 
       // Para flexibility, usamos sport_trainings con sport_type 'other'
-      const response = await fetch('/api/trainings', {
+      const response = await apiFetch('/api/trainings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

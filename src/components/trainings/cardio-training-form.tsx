@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useUnsavedChanges } from '@/hooks/use-unsaved-changes';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { ArrowLeft, Loader2 } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
 const cardioTrainingSchema = z.object({
   date: z.string().min(1, 'La fecha es requerida'),
@@ -61,7 +62,7 @@ export function CardioTrainingForm({ onBack }: CardioTrainingFormProps) {
 
       // Para cardio, usamos sport_trainings con sport_type 'other' o creamos una estructura similar
       // Por ahora, lo guardaremos como sport con tipo 'other' ya que no hay tabla específica para cardio
-      const response = await fetch('/api/trainings', {
+      const response = await apiFetch('/api/trainings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

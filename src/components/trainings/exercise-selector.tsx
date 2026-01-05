@@ -10,6 +10,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, Plus, Search, X, Edit2, Trash2, Eye, Dumbbell, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { MuscleGroupSelector, MuscleGroupWithType } from './muscle-group-selector';
+import { apiFetch } from '@/lib/api';
 import {
   Dialog,
   DialogContent,
@@ -85,7 +86,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
       const url = '/api/exercises';
       
       // Agregar timestamp para evitar caché
-      const response = await fetch(`${url}?_=${Date.now()}`, {
+      const response = await apiFetch(`${url}?_=${Date.now()}`, {
         cache: 'no-store',
       });
       if (!response.ok) throw new Error('Error al cargar ejercicios');
@@ -192,7 +193,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
       });
       console.log('muscleGroupsJson details:', JSON.stringify(muscleGroupsJson, null, 2));
 
-      const response = await fetch(`/api/exercises/${editingExercise.id}`, {
+      const response = await apiFetch(`/api/exercises/${editingExercise.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -290,7 +291,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
     // Segunda confirmación: eliminar
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/exercises/${deletingExercise.id}`, {
+      const response = await apiFetch(`/api/exercises/${deletingExercise.id}`, {
         method: 'DELETE',
       });
 
@@ -353,7 +354,7 @@ export function ExerciseSelector({ onSelect, onClose }: ExerciseSelectorProps) {
       // También mantener compatibilidad con el formato antiguo (array de strings)
       const muscleGroupsArray = selectedMuscleGroups.map((mg) => mg.name);
 
-      const response = await fetch('/api/exercises', {
+      const response = await apiFetch('/api/exercises', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

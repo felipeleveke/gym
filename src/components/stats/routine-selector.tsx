@@ -5,6 +5,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { apiFetch } from '@/lib/api';
 
 interface Routine {
     id: string;
@@ -31,7 +32,7 @@ export function RoutineSelector({
     useEffect(() => {
         const fetchRoutines = async () => {
             try {
-                const response = await fetch('/api/routines');
+                const response = await apiFetch('/api/routines');
                 if (!response.ok) throw new Error('Error al cargar rutinas');
                 
                 const data = await response.json();

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 export type TrainingType = 'gym' | 'sport' | 'cardio' | 'flexibility' | 'other' | 'warmup' | 'circuit';
 
@@ -66,7 +67,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
         params.append('muscleGroup', options.muscleGroup);
       }
 
-      const response = await fetch(`/api/exercises?${params.toString()}`);
+      const response = await apiFetch(`/api/exercises?${params.toString()}`);
       if (!response.ok) throw new Error('Error al cargar ejercicios');
 
       const result = await response.json();
@@ -86,7 +87,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
 
       // Obtener estadísticas si es necesario
       if (options.sortBy === 'usage' || options.sortBy === 'recent') {
-        const statsResponse = await fetch('/api/exercises/stats');
+        const statsResponse = await apiFetch('/api/exercises/stats');
         if (statsResponse.ok) {
           const statsResult = await statsResponse.json();
           const statsMap = statsResult.stats || {};
@@ -152,7 +153,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
     training_type?: TrainingType;
   }) => {
     try {
-      const response = await fetch('/api/exercises', {
+      const response = await apiFetch('/api/exercises', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(exerciseData),
@@ -198,7 +199,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
     training_type?: TrainingType;
   }) => {
     try {
-      const response = await fetch(`/api/exercises/${id}`, {
+      const response = await apiFetch(`/api/exercises/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(exerciseData),
@@ -231,7 +232,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
 
   const deleteExercise = useCallback(async (id: string) => {
     try {
-      const response = await fetch(`/api/exercises/${id}`, {
+      const response = await apiFetch(`/api/exercises/${id}`, {
         method: 'DELETE',
       });
 
@@ -260,7 +261,7 @@ export function useExercises(options: UseExercisesOptions = {}) {
 
   const fetchExerciseStats = useCallback(async (exerciseId: string): Promise<ExerciseStats | null> => {
     try {
-      const response = await fetch(`/api/exercises/stats?exerciseId=${exerciseId}`);
+      const response = await apiFetch(`/api/exercises/stats?exerciseId=${exerciseId}`);
       if (!response.ok) return null;
 
       const result = await response.json();

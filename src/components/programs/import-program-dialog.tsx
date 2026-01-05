@@ -13,6 +13,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { Loader2, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { apiFetch } from '@/lib/api';
 
 interface ImportProgramDialogProps {
   open: boolean;
@@ -30,7 +31,7 @@ export function ImportProgramDialog({ open, onOpenChange, onSuccess }: ImportPro
 
     setLoading(true);
     try {
-      const response = await fetch('/api/programs/import', {
+      const response = await apiFetch('/api/programs/import', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),

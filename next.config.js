@@ -9,11 +9,8 @@ const nextConfig = {
       },
     ],
   },
-  // Capacitor Configuration
-  // En desarrollo, Capacitor puede usar server.url apuntando a localhost
-  // En producción, las API routes estarán en Vercel y la app las llamará directamente
-  // Para builds estáticos, usar: output: 'export' (pero esto deshabilita API routes)
-  // Por ahora mantenemos el servidor activo para que las APIs funcionen
+  // Capacitor: La app móvil carga directamente desde Vercel
+  // No se usa output: 'export' porque es incompatible con API routes
   async headers() {
     return [
       {

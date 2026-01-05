@@ -1,3 +1,5 @@
+import { apiFetch } from './api';
+
 export const COMMON_MUSCLE_GROUPS = [
   'Pecho (Pectorales)',
   'Espalda',
@@ -25,7 +27,7 @@ export type MuscleGroup = typeof COMMON_MUSCLE_GROUPS[number] | string;
 // Función para obtener grupos musculares únicos de la base de datos
 export async function getExistingMuscleGroups(): Promise<MuscleGroupDB[]> {
   try {
-    const response = await fetch('/api/muscle-groups');
+    const response = await apiFetch('/api/muscle-groups');
     if (!response.ok) return [];
     
     const result = await response.json();

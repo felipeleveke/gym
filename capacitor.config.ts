@@ -1,18 +1,17 @@
 import { CapacitorConfig } from '@capacitor/cli';
 
+// URL de producción
+const PRODUCTION_URL = 'https://entrenamiento.app';
+
 const config: CapacitorConfig = {
   appId: 'com.gymtracker.app',
   appName: 'Gym Training Tracker',
   webDir: 'dist',
-  // En desarrollo, usar el servidor local de Next.js
-  // Descomentar para desarrollo local:
-  // server: {
-  //   url: 'http://localhost:3007',
-  //   cleartext: true,
-  // },
-  // En producción, las API routes estarán en Vercel
-  // y se llamarán directamente desde la app móvil
+  // La app móvil carga directamente desde Vercel
+  // Esto permite actualizaciones sin re-publicar el APK
   server: {
+    url: PRODUCTION_URL,
+    cleartext: false,
     androidScheme: 'https',
     iosScheme: 'https',
   },

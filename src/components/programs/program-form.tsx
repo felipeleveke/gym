@@ -32,6 +32,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { DatePicker, DateTimePicker } from '@/components/ui/date-time-picker';
 import { RoutineInlinePreview } from './routine-inline-preview';
+import { apiFetch } from '@/lib/api';
 
 interface RoutineVariant {
   id: string;
@@ -373,7 +374,7 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
     const fetchVariants = async () => {
       try {
         // First get all routines
-        const routinesResponse = await fetch('/api/routines');
+        const routinesResponse = await apiFetch('/api/routines');
         if (!routinesResponse.ok) throw new Error('Error fetching routines');
         const { data: routines } = await routinesResponse.json();
 
@@ -381,7 +382,7 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
         // The API will automatically create a default variant if none exists
         const allVariants: RoutineVariant[] = [];
         for (const routine of routines || []) {
-          const variantsResponse = await fetch(`/api/routines/${routine.id}/variants`);
+          const variantsResponse = await apiFetch(`/api/routines/${routine.id}/variants`);
           if (variantsResponse.ok) {
             const { data: variants } = await variantsResponse.json();
             if (variants && variants.length > 0) {

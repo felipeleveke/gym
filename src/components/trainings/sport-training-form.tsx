@@ -17,6 +17,7 @@ import { useGeolocation } from '@/hooks/use-geolocation';
 import { isNativePlatform } from '@/lib/capacitor';
 import { UnsavedChangesDialog } from '@/components/ui/unsaved-changes-dialog';
 import { ArrowLeft, Loader2, MapPin } from 'lucide-react';
+import { apiFetch } from '@/lib/api';
 
 const sportTypeOptions = [
   { value: 'running', label: 'Running' },
@@ -130,7 +131,7 @@ export function SportTrainingForm({ onBack }: SportTrainingFormProps) {
       if (data.weather) trainingData.weather = data.weather;
       if (data.temperature) trainingData.temperature = data.temperature;
 
-      const response = await fetch('/api/trainings', {
+      const response = await apiFetch('/api/trainings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
