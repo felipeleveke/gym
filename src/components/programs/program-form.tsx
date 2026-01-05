@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -31,6 +31,7 @@ import {
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker, DateTimePicker } from '@/components/ui/date-time-picker';
+import { RoutineInlinePreview } from './routine-inline-preview';
 
 interface RoutineVariant {
   id: string;
@@ -40,6 +41,40 @@ interface RoutineVariant {
     id: string;
     name: string;
   };
+}
+
+interface VariantSet {
+  id: string;
+  set_number: number;
+  target_reps?: number;
+  target_rir?: number;
+  target_weight?: number;
+  target_weight_percent?: number;
+  set_type: string;
+  notes?: string;
+}
+
+interface VariantExercise {
+  id: string;
+  order_index: number;
+  notes?: string;
+  exercise: {
+    id: string;
+    name: string;
+    muscle_groups?: string[];
+  };
+  variant_exercise_sets: VariantSet[];
+}
+
+interface RoutineVariantDetail {
+  id: string;
+  variant_name: string;
+  intensity_level: number;
+  workout_routine?: {
+    id: string;
+    name: string;
+  };
+  variant_exercises?: VariantExercise[];
 }
 
 interface PhaseRoutine {
@@ -98,6 +133,7 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
   const { toast } = useToast();
   const [blocks, setBlocks] = useState<TrainingBlock[]>([]);
   const [availableVariants, setAvailableVariants] = useState<RoutineVariant[]>([]);
+  const [variantDetails, setVariantDetails] = useState<Map<string, RoutineVariantDetail>>(new Map());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loadingVariants, setLoadingVariants] = useState(true);
   const [loadingProgram, setLoadingProgram] = useState(!!programId);
@@ -202,6 +238,87 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
     fetchProgram();
   }, [programId, toast, reset]);
 
+  // Función para cargar detalles de una variante
+  const loadVariantDetails = useCallback(async (variantId: string) => {
+    // Si ya tenemos los detalles, no hacer fetch
+    if (variantDetails.has(variantId)) {
+      return;
+    }
+
+    try {
+      // Buscar la rutina asociada a esta variante
+      const variant = availableVariants.find(v => v.id === variantId);
+      if (!variant || !variant.workout_routine?.id) {
+        return;
+      }
+
+      const routineId = variant.workout_routine.id;
+
+      // Fetch de los detalles completos de la variante
+      const response = await fetch(`/api/routines/${routineId}/variants`);
+      if (!response.ok) return;
+
+      const { data: variants } = await response.json();
+      const fullVariant = variants.find((v: any) => v.id === variantId);
+
+      if (fullVariant) {
+        let exercises = fullVariant.variant_exercises || [];
+
+        // Si la variante no tiene ejercicios, cargar los de la rutina base
+        if (exercises.length === 0) {
+          const routineResponse = await fetch(`/api/routines/${routineId}`);
+          if (routineResponse.ok) {
+            const { data: routineData } = await routineResponse.json();
+            if (routineData?.routine_exercises && routineData.routine_exercises.length > 0) {
+              // Convertir routine_exercises al formato de variant_exercises
+              exercises = routineData.routine_exercises.map((re: any) => {
+                // Crear sets simulados a partir de los valores por defecto
+                const sets = [];
+                const numSets = re.default_sets || 3; // Default 3 sets si no está definido
+                
+                for (let i = 1; i <= numSets; i++) {
+                  sets.push({
+                    id: `${re.id}-set-${i}`,
+                    set_number: i,
+                    target_reps: re.default_reps || null,
+                    target_rir: re.default_rir !== null && re.default_rir !== undefined ? re.default_rir : null,
+                    target_rpe: re.default_rpe || null,
+                    target_weight: re.default_weight || null,
+                    target_weight_percent: null,
+                    set_type: 'working',
+                    notes: null,
+                  });
+                }
+
+                return {
+                  id: re.id,
+                  order_index: re.order_index,
+                  notes: re.notes,
+                  exercise: re.exercise,
+                  variant_exercise_sets: sets,
+                };
+              });
+            }
+          }
+        }
+
+        setVariantDetails(prev => {
+          const newMap = new Map(prev);
+          newMap.set(variantId, {
+            id: fullVariant.id,
+            variant_name: fullVariant.variant_name,
+            intensity_level: fullVariant.intensity_level,
+            workout_routine: fullVariant.workout_routine || variant.workout_routine,
+            variant_exercises: exercises,
+          });
+          return newMap;
+        });
+      }
+    } catch (error) {
+      console.error('Error loading variant details:', error);
+    }
+  }, [availableVariants, variantDetails]);
+
   // Map program-specific variants to original variants after both are loaded
   useEffect(() => {
     if (!programId || !programDataLoaded || loadingVariants || availableVariants.length === 0 || blocks.length === 0 || mappingDoneRef.current) return;
@@ -233,7 +350,23 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
 
     setBlocks(mappedBlocks);
     mappingDoneRef.current = true;
-  }, [programId, programDataLoaded, loadingVariants, availableVariants, blocks]);
+
+    // Cargar detalles de todas las variantes usadas en el programa
+    const variantIds = new Set<string>();
+    mappedBlocks.forEach(block => {
+      block.phases.forEach(phase => {
+        phase.routines.forEach(routine => {
+          if (routine.routine_variant_id) {
+            variantIds.add(routine.routine_variant_id);
+          }
+        });
+      });
+    });
+
+    variantIds.forEach(variantId => {
+      loadVariantDetails(variantId);
+    });
+  }, [programId, programDataLoaded, loadingVariants, availableVariants, blocks, loadVariantDetails]);
 
   // Fetch available routine variants
   useEffect(() => {
@@ -371,6 +504,11 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
       ...updates,
     };
     setBlocks(newBlocks);
+
+    // Si se seleccionó una variante, cargar sus detalles
+    if (updates.routine_variant_id) {
+      loadVariantDetails(updates.routine_variant_id);
+    }
   };
 
   const handleRemovePhaseRoutine = (blockIndex: number, phaseIndex: number, routineIndex: number) => {
@@ -687,56 +825,66 @@ export function ProgramForm({ programId }: ProgramFormProps = {}) {
                                     <p className="text-xs text-muted-foreground italic">Sin rutinas programadas</p>
                                   ) : (
                                     phase.routines.map((routine, routineIndex) => (
-                                      <div key={routineIndex} className="flex items-center gap-2 p-2 bg-background rounded border">
-                                        <Select
-                                          value={routine.routine_variant_id || ''}
-                                          onValueChange={(v) =>
-                                            handleUpdatePhaseRoutine(blockIndex, phaseIndex, routineIndex, {
-                                              routine_variant_id: v || '',
-                                            })
-                                          }
-                                        >
-                                          <SelectTrigger className="flex-1 min-w-[180px]">
-                                            <SelectValue placeholder="Seleccionar rutina..." />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            {loadingVariants ? (
-                                              <SelectItem value="loading" disabled>
-                                                Cargando...
-                                              </SelectItem>
-                                            ) : availableVariants.length === 0 ? (
-                                              <SelectItem value="empty" disabled>
-                                                No hay variantes
-                                              </SelectItem>
-                                            ) : (
-                                              availableVariants.map((variant) => (
-                                                <SelectItem key={variant.id} value={variant.id}>
-                                                  {variant.workout_routine?.name} - {variant.variant_name}
+                                      <div key={routineIndex} className="p-2 bg-background rounded border space-y-2">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <Select
+                                            value={routine.routine_variant_id || ''}
+                                            onValueChange={(v) =>
+                                              handleUpdatePhaseRoutine(blockIndex, phaseIndex, routineIndex, {
+                                                routine_variant_id: v || '',
+                                              })
+                                            }
+                                          >
+                                            <SelectTrigger className="flex-1 min-w-[180px]">
+                                              <SelectValue placeholder="Seleccionar rutina..." />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              {loadingVariants ? (
+                                                <SelectItem value="loading" disabled>
+                                                  Cargando...
                                                 </SelectItem>
-                                              ))
-                                            )}
-                                          </SelectContent>
-                                        </Select>
+                                              ) : availableVariants.length === 0 ? (
+                                                <SelectItem value="empty" disabled>
+                                                  No hay variantes
+                                                </SelectItem>
+                                              ) : (
+                                                availableVariants.map((variant) => (
+                                                  <SelectItem key={variant.id} value={variant.id}>
+                                                    {variant.workout_routine?.name} - {variant.variant_name}
+                                                  </SelectItem>
+                                                ))
+                                              )}
+                                            </SelectContent>
+                                          </Select>
 
-                                        <DateTimePicker
-                                          value={routine.scheduled_at}
-                                          onChange={(value) =>
-                                            handleUpdatePhaseRoutine(blockIndex, phaseIndex, routineIndex, {
-                                              scheduled_at: value,
-                                            })
-                                          }
-                                          className="w-[200px]"
-                                        />
+                                          <DateTimePicker
+                                            value={routine.scheduled_at}
+                                            onChange={(value) =>
+                                              handleUpdatePhaseRoutine(blockIndex, phaseIndex, routineIndex, {
+                                                scheduled_at: value,
+                                              })
+                                            }
+                                            className="w-full sm:w-[240px] md:w-[280px]"
+                                          />
 
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="icon"
-                                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                                          onClick={() => handleRemovePhaseRoutine(blockIndex, phaseIndex, routineIndex)}
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                                            onClick={() => handleRemovePhaseRoutine(blockIndex, phaseIndex, routineIndex)}
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+
+                                        {routine.routine_variant_id && (
+                                          <RoutineInlinePreview
+                                            variantId={routine.routine_variant_id}
+                                            variantDetails={variantDetails}
+                                            isLoading={!variantDetails.has(routine.routine_variant_id)}
+                                          />
+                                        )}
                                       </div>
                                     ))
                                   )}

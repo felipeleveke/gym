@@ -80,7 +80,12 @@ export function DateTimePicker({
     return `${year}-${month}-${day}T${hours}:${minutes}`
   }
 
+  // Formato compacto para mobile y descriptivo para desktop
   const displayValue = dateValue
+    ? format(dateValue, showTimeSelect ? "d MMM yyyy, HH:mm" : "d MMM yyyy", { locale: es })
+    : placeholder
+
+  const displayValueLong = dateValue
     ? format(dateValue, showTimeSelect ? "PPP 'a las' HH:mm" : "PPP", { locale: es })
     : placeholder
 
@@ -92,13 +97,18 @@ export function DateTimePicker({
           variant="outline"
           disabled={disabled}
           className={cn(
-            "w-full justify-start text-left font-normal",
+            "w-full justify-start text-left font-normal overflow-hidden",
             !dateValue && "text-muted-foreground",
             className
           )}
         >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {displayValue}
+          <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
+          <span className="truncate block md:hidden" title={displayValueLong}>
+            {displayValue}
+          </span>
+          <span className="truncate hidden md:block" title={displayValueLong}>
+            {displayValueLong}
+          </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0" align="start">
